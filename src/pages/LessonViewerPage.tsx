@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock } from "lucide-react";
+import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock, Image, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -128,6 +128,18 @@ const LessonViewerPage = () => {
         ) : lesson.content_type === "pdf" && lesson.file_url ? (
           <div className="aspect-video bg-card">
             <iframe src={lesson.file_url} className="w-full h-full" title={lesson.title} />
+          </div>
+        ) : lesson.content_type === "image" && lesson.file_url ? (
+          <div className="bg-card flex items-center justify-center p-6">
+            <img src={lesson.file_url} alt={lesson.title} className="max-w-full max-h-[70vh] rounded-lg object-contain" />
+          </div>
+        ) : lesson.content_type === "url" && lesson.file_url ? (
+          <div className="p-6">
+            <a href={lesson.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-lg">
+              <ExternalLink className="w-5 h-5" />
+              Open External Resource
+            </a>
+            <iframe src={lesson.file_url} className="w-full h-[70vh] mt-4 rounded-lg border border-border" title={lesson.title} />
           </div>
         ) : lesson.content_type === "video" ? (
           <div className="aspect-video bg-card flex items-center justify-center">

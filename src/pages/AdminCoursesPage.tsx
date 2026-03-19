@@ -22,7 +22,7 @@ const AdminCoursesPage = () => {
   const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [showModuleForm, setShowModuleForm] = useState<string | null>(null);
-  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video" as string, content_text: "", module_id: "" });
+  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video" as string, content_text: "", content_url: "", module_id: "" });
   const [showLessonForm, setShowLessonForm] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
 
@@ -129,11 +129,12 @@ const AdminCoursesPage = () => {
   const createLesson = useMutation({
     mutationFn: async (fileUrl?: string) => {
       const moduleLessons = lessons.filter((l: any) => l.module_id === lessonForm.module_id);
+      const finalUrl = fileUrl || lessonForm.content_url || null;
       const { error } = await supabase.from("lessons").insert({
         title: lessonForm.title,
         content_type: lessonForm.content_type,
         content_text: lessonForm.content_text || null,
-        file_url: fileUrl || null,
+        file_url: finalUrl,
         module_id: lessonForm.module_id,
         sort_order: moduleLessons.length,
       });
@@ -143,7 +144,7 @@ const AdminCoursesPage = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-lessons"] });
       toast.success("Lesson created!");
       setShowLessonForm(null);
-      setLessonForm({ title: "", content_type: "video", content_text: "", module_id: "" });
+      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -312,15 +313,20 @@ const AdminCoursesPage = () => {
                                         <SelectItem value="video">Video</SelectItem>
                                         <SelectItem value="pdf">PDF</SelectItem>
                                         <SelectItem value="text">Text</SelectItem>
+                                        <SelectItem value="image">Image</SelectItem>
+                                        <SelectItem value="url">External URL</SelectItem>
                                       </SelectContent>
                                     </Select>
                                     {lessonForm.content_type === "text" && (
                                       <Textarea placeholder="Lesson content" value={lessonForm.content_text} onChange={(e) => setLessonForm({ ...lessonForm, content_text: e.target.value })} className="bg-secondary border-border text-sm" />
                                     )}
-                                    {(lessonForm.content_type === "video" || lessonForm.content_type === "pdf") && (
+                                    {lessonForm.content_type === "url" && (
+                                      <Input placeholder="https://example.com/resource" value={lessonForm.content_url} onChange={(e) => setLessonForm({ ...lessonForm, content_url: e.target.value })} className="bg-secondary border-border text-sm" />
+                                    )}
+                                    {(lessonForm.content_type === "video" || lessonForm.content_type === "pdf" || lessonForm.content_type === "image") && (
                                       <div className="space-y-1">
-                                        <Label className="text-xs">Upload {lessonForm.content_type === "video" ? "Video" : "PDF"}</Label>
-                                        <Input id="lesson-file" type="file" accept={lessonForm.content_type === "video" ? "video/*" : ".pdf"} className="bg-secondary border-border text-sm" />
+                                        <Label className="text-xs">Upload {lessonForm.content_type === "video" ? "Video" : lessonForm.content_type === "pdf" ? "PDF" : "Image"}</Label>
+                                        <Input id="lesson-file" type="file" accept={lessonForm.content_type === "video" ? "video/*" : lessonForm.content_type === "pdf" ? ".pdf" : "image/*"} className="bg-secondary border-border text-sm" />
                                       </div>
                                     )}
                                     <div className="flex gap-2">
