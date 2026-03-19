@@ -129,6 +129,18 @@ const LessonViewerPage = () => {
           <div className="aspect-video bg-card">
             <iframe src={lesson.file_url} className="w-full h-full" title={lesson.title} />
           </div>
+        ) : lesson.content_type === "image" && lesson.file_url ? (
+          <div className="bg-card flex items-center justify-center p-6">
+            <img src={lesson.file_url} alt={lesson.title} className="max-w-full max-h-[70vh] rounded-lg object-contain" />
+          </div>
+        ) : lesson.content_type === "url" && lesson.file_url ? (
+          <div className="p-6">
+            <a href={lesson.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-lg">
+              <ExternalLink className="w-5 h-5" />
+              Open External Resource
+            </a>
+            <iframe src={lesson.file_url} className="w-full h-[70vh] mt-4 rounded-lg border border-border" title={lesson.title} />
+          </div>
         ) : lesson.content_type === "video" ? (
           <div className="aspect-video bg-card flex items-center justify-center">
             <div className="text-center"><PlayCircle className="w-16 h-16 text-primary mx-auto mb-4 opacity-50" /><p className="text-muted-foreground">No video uploaded yet</p></div>
