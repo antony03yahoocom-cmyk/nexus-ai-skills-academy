@@ -57,7 +57,7 @@ const SignupPage = () => {
             <span className="font-display font-bold text-xl">NEXUS AI</span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Start your free trial</h1>
-          <p className="text-muted-foreground">30 days of unlimited access</p>
+          <p className="text-muted-foreground">7 days of unlimited access</p>
         </div>
 
         <div className="glass-card p-8">
