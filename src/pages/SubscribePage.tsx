@@ -57,13 +57,14 @@ const SubscribePage = () => {
     setLoading(false);
   };
 
-  const handlePaystack = async () => {
+  const handlePaystack = async (plan: "monthly" | "onetime") => {
     if (!user || !session) {
       toast.error("Please log in first");
       return;
     }
     setLoading(true);
     try {
+      const amount = plan === "monthly" ? 150000 : 350000; // in kobo (KES cents)
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/paystack?action=initialize`,
         {
@@ -73,7 +74,7 @@ const SubscribePage = () => {
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            amount: 1500000,
+            amount,
             callback_url: `${window.location.origin}/subscribe?verify=true`,
           }),
         }
