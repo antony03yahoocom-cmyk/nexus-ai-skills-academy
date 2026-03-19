@@ -313,15 +313,20 @@ const AdminCoursesPage = () => {
                                         <SelectItem value="video">Video</SelectItem>
                                         <SelectItem value="pdf">PDF</SelectItem>
                                         <SelectItem value="text">Text</SelectItem>
+                                        <SelectItem value="image">Image</SelectItem>
+                                        <SelectItem value="url">External URL</SelectItem>
                                       </SelectContent>
                                     </Select>
                                     {lessonForm.content_type === "text" && (
                                       <Textarea placeholder="Lesson content" value={lessonForm.content_text} onChange={(e) => setLessonForm({ ...lessonForm, content_text: e.target.value })} className="bg-secondary border-border text-sm" />
                                     )}
-                                    {(lessonForm.content_type === "video" || lessonForm.content_type === "pdf") && (
+                                    {lessonForm.content_type === "url" && (
+                                      <Input placeholder="https://example.com/resource" value={lessonForm.content_url} onChange={(e) => setLessonForm({ ...lessonForm, content_url: e.target.value })} className="bg-secondary border-border text-sm" />
+                                    )}
+                                    {(lessonForm.content_type === "video" || lessonForm.content_type === "pdf" || lessonForm.content_type === "image") && (
                                       <div className="space-y-1">
-                                        <Label className="text-xs">Upload {lessonForm.content_type === "video" ? "Video" : "PDF"}</Label>
-                                        <Input id="lesson-file" type="file" accept={lessonForm.content_type === "video" ? "video/*" : ".pdf"} className="bg-secondary border-border text-sm" />
+                                        <Label className="text-xs">Upload {lessonForm.content_type === "video" ? "Video" : lessonForm.content_type === "pdf" ? "PDF" : "Image"}</Label>
+                                        <Input id="lesson-file" type="file" accept={lessonForm.content_type === "video" ? "video/*" : lessonForm.content_type === "pdf" ? ".pdf" : "image/*"} className="bg-secondary border-border text-sm" />
                                       </div>
                                     )}
                                     <div className="flex gap-2">
