@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock } from "lucide-react";
+import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock, Image, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
