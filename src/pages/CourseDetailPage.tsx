@@ -79,10 +79,21 @@ const CourseDetailPage = () => {
             <div className="flex items-center gap-4 text-sm text-muted-foreground mb-8">
               <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{modules.length} modules · {lessons.length} lessons</span>
             </div>
+            {user && !hasAccess && (
+              <div className="glass-card p-4 mb-6 border-destructive/30 bg-destructive/5 flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-destructive" />
+                  <span className="text-sm font-medium text-destructive">Your free trial has expired. Please subscribe to continue learning.</span>
+                </div>
+                <Button variant="hero" size="sm" asChild><Link to="/subscribe">Subscribe Now</Link></Button>
+              </div>
+            )}
             {enrollment ? (
-              <Button variant="hero" size="lg" asChild><Link to={lessons[0] ? `/lesson/${lessons[0].id}` : "#"}>Continue Learning</Link></Button>
+              <Button variant="hero" size="lg" disabled={!hasAccess} asChild={hasAccess}>
+                {hasAccess ? <Link to={lessons[0] ? `/lesson/${lessons[0].id}` : "#"}>Continue Learning</Link> : <>Continue Learning</>}
+              </Button>
             ) : (
-              <Button variant="hero" size="lg" onClick={() => enroll.mutate()}>
+              <Button variant="hero" size="lg" onClick={() => enroll.mutate()} disabled={user ? !hasAccess : false}>
                 {user ? "Enroll Now" : "Sign In to Enroll"}
               </Button>
             )}

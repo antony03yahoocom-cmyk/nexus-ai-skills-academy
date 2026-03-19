@@ -98,7 +98,7 @@ const LessonViewerPage = () => {
         <div className="glass-card p-8 text-center max-w-md">
           <Lock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
-          <p className="text-muted-foreground mb-4">Your trial has expired. Subscribe to continue learning.</p>
+          <p className="text-muted-foreground mb-4">Your free trial has expired. Please subscribe to continue learning.</p>
           <Button variant="hero" asChild><Link to="/subscribe">Subscribe Now</Link></Button>
         </div>
       </div>
