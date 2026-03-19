@@ -22,7 +22,7 @@ const AdminCoursesPage = () => {
   const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [showModuleForm, setShowModuleForm] = useState<string | null>(null);
-  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video" as string, content_text: "", module_id: "" });
+  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video" as string, content_text: "", content_url: "", module_id: "" });
   const [showLessonForm, setShowLessonForm] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
 
