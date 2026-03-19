@@ -129,11 +129,12 @@ const AdminCoursesPage = () => {
   const createLesson = useMutation({
     mutationFn: async (fileUrl?: string) => {
       const moduleLessons = lessons.filter((l: any) => l.module_id === lessonForm.module_id);
+      const finalUrl = fileUrl || lessonForm.content_url || null;
       const { error } = await supabase.from("lessons").insert({
         title: lessonForm.title,
         content_type: lessonForm.content_type,
         content_text: lessonForm.content_text || null,
-        file_url: fileUrl || null,
+        file_url: finalUrl,
         module_id: lessonForm.module_id,
         sort_order: moduleLessons.length,
       });
@@ -143,7 +144,7 @@ const AdminCoursesPage = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-lessons"] });
       toast.success("Lesson created!");
       setShowLessonForm(null);
-      setLessonForm({ title: "", content_type: "video", content_text: "", module_id: "" });
+      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
     },
     onError: (e: any) => toast.error(e.message),
   });
