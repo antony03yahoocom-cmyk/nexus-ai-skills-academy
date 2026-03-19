@@ -3,6 +3,8 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute, AdminRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
@@ -12,6 +14,10 @@ import CourseDetailPage from "./pages/CourseDetailPage.tsx";
 import LessonViewerPage from "./pages/LessonViewerPage.tsx";
 import StudentDashboard from "./pages/StudentDashboard.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
+import AdminCoursesPage from "./pages/AdminCoursesPage.tsx";
+import AdminStudentsPage from "./pages/AdminStudentsPage.tsx";
+import AdminAnnouncementsPage from "./pages/AdminAnnouncementsPage.tsx";
+import SubscribePage from "./pages/SubscribePage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -21,17 +27,24 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/courses" element={<CoursesPage />} />
-          <Route path="/courses/:courseId" element={<CourseDetailPage />} />
-          <Route path="/lesson/:lessonId" element={<LessonViewerPage />} />
-          <Route path="/dashboard" element={<StudentDashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/courses" element={<CoursesPage />} />
+            <Route path="/courses/:courseId" element={<CourseDetailPage />} />
+            <Route path="/subscribe" element={<SubscribePage />} />
+            <Route path="/lesson/:lessonId" element={<ProtectedRoute><LessonViewerPage /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/*" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/courses" element={<AdminRoute><AdminCoursesPage /></AdminRoute>} />
+            <Route path="/admin/students" element={<AdminRoute><AdminStudentsPage /></AdminRoute>} />
+            <Route path="/admin/announcements" element={<AdminRoute><AdminAnnouncementsPage /></AdminRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

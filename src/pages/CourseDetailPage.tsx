@@ -1,98 +1,121 @@
-import { useParams, Link } from "react-router-dom";
-import { Clock, Users, Star, PlayCircle, FileText, CheckCircle } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { Clock, Users, PlayCircle, FileText, CheckCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
-
-const courseData = {
-  id: "1",
-  title: "Complete AI & Machine Learning Bootcamp",
-  description: "Master artificial intelligence and machine learning from the ground up. This comprehensive bootcamp covers everything from Python basics to advanced neural networks, with hands-on projects and real-world applications.",
-  category: "Artificial Intelligence",
-  lessons: 48,
-  students: 2340,
-  rating: 4.9,
-  modules: [
-    {
-      title: "Module 1: Introduction to AI",
-      lessons: [
-        { id: "l1", title: "What is Artificial Intelligence?", type: "video", duration: "12 min" },
-        { id: "l2", title: "History and Evolution of AI", type: "video", duration: "18 min" },
-        { id: "l3", title: "AI Applications in Today's World", type: "pdf", duration: "10 min" },
-      ],
-    },
-    {
-      title: "Module 2: Python for AI",
-      lessons: [
-        { id: "l4", title: "Python Fundamentals", type: "video", duration: "25 min" },
-        { id: "l5", title: "NumPy & Pandas Crash Course", type: "video", duration: "30 min" },
-        { id: "l6", title: "Data Visualization with Matplotlib", type: "video", duration: "22 min" },
-      ],
-    },
-    {
-      title: "Module 3: Machine Learning Basics",
-      lessons: [
-        { id: "l7", title: "Supervised vs Unsupervised Learning", type: "video", duration: "20 min" },
-        { id: "l8", title: "Linear Regression Deep Dive", type: "video", duration: "28 min" },
-        { id: "l9", title: "Assignment: Build Your First ML Model", type: "text", duration: "45 min" },
-      ],
-    },
-  ],
-};
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const CourseDetailPage = () => {
   const { courseId } = useParams();
+  const { user, hasAccess } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const { data: course } = useQuery({
+    queryKey: ["course", courseId],
+    queryFn: async () => {
+      const { data } = await supabase.from("courses").select("*").eq("id", courseId!).single();
+      return data;
+    },
+    enabled: !!courseId,
+  });
+
+  const { data: modules = [] } = useQuery({
+    queryKey: ["course-modules", courseId],
+    queryFn: async () => {
+      const { data } = await supabase.from("modules").select("*").eq("course_id", courseId!).order("sort_order");
+      return data ?? [];
+    },
+    enabled: !!courseId,
+  });
+
+  const { data: lessons = [] } = useQuery({
+    queryKey: ["course-lessons", courseId],
+    queryFn: async () => {
+      const moduleIds = modules.map((m: any) => m.id);
+      if (moduleIds.length === 0) return [];
+      const { data } = await supabase.from("lessons").select("*").in("module_id", moduleIds).order("sort_order");
+      return data ?? [];
+    },
+    enabled: modules.length > 0,
+  });
+
+  const { data: enrollment } = useQuery({
+    queryKey: ["enrollment", user?.id, courseId],
+    queryFn: async () => {
+      const { data } = await supabase.from("enrollments").select("*").eq("user_id", user!.id).eq("course_id", courseId!).maybeSingle();
+      return data;
+    },
+    enabled: !!user && !!courseId,
+  });
+
+  const enroll = useMutation({
+    mutationFn: async () => {
+      if (!user) { navigate("/login"); return; }
+      const { error } = await supabase.from("enrollments").insert({ user_id: user.id, course_id: courseId! });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["enrollment"] });
+      toast.success("Enrolled successfully!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  if (!course) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
-          {/* Header */}
           <div className="max-w-4xl mx-auto mb-12">
-            <span className="text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
-              {courseData.category}
-            </span>
-            <h1 className="text-3xl md:text-5xl font-bold mt-4 mb-4">{courseData.title}</h1>
-            <p className="text-muted-foreground text-lg mb-6 leading-relaxed">{courseData.description}</p>
-            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-8">
-              <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{courseData.lessons} lessons</span>
-              <span className="flex items-center gap-1"><Users className="w-4 h-4" />{courseData.students.toLocaleString()} students</span>
-              <span className="flex items-center gap-1"><Star className="w-4 h-4 fill-primary text-primary" />{courseData.rating}</span>
+            <span className="text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">{course.category}</span>
+            <h1 className="text-3xl md:text-5xl font-bold mt-4 mb-4">{course.title}</h1>
+            <p className="text-muted-foreground text-lg mb-6 leading-relaxed">{course.description}</p>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-8">
+              <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{modules.length} modules · {lessons.length} lessons</span>
             </div>
-            <Button variant="hero" size="lg">Enroll Now — Free Trial</Button>
+            {enrollment ? (
+              <Button variant="hero" size="lg" asChild><Link to={lessons[0] ? `/lesson/${lessons[0].id}` : "#"}>Continue Learning</Link></Button>
+            ) : (
+              <Button variant="hero" size="lg" onClick={() => enroll.mutate()}>
+                {user ? "Enroll Now" : "Sign In to Enroll"}
+              </Button>
+            )}
           </div>
 
-          {/* Modules */}
           <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold mb-6">Course Curriculum</h2>
             <div className="space-y-4">
-              {courseData.modules.map((module, idx) => (
-                <div key={idx} className="glass-card overflow-hidden">
-                  <div className="p-5 border-b border-border">
-                    <h3 className="font-semibold">{module.title}</h3>
+              {modules.map((mod: any) => {
+                const modLessons = lessons.filter((l: any) => l.module_id === mod.id);
+                return (
+                  <div key={mod.id} className="glass-card overflow-hidden">
+                    <div className="p-5 border-b border-border">
+                      <h3 className="font-semibold">{mod.title}</h3>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {modLessons.map((lesson: any) => {
+                        const canAccess = enrollment && hasAccess;
+                        return (
+                          <div key={lesson.id} className={`flex items-center gap-3 p-4 ${canAccess ? "hover:bg-secondary/50 cursor-pointer" : "opacity-60"}`}
+                            onClick={() => canAccess && navigate(`/lesson/${lesson.id}`)}>
+                            {lesson.content_type === "video" ? <PlayCircle className="w-5 h-5 text-primary shrink-0" />
+                              : lesson.content_type === "pdf" ? <FileText className="w-5 h-5 text-accent shrink-0" />
+                              : <CheckCircle className="w-5 h-5 text-success shrink-0" />}
+                            <span className="flex-1 text-sm">{lesson.title}</span>
+                            {!canAccess && <Lock className="w-4 h-4 text-muted-foreground" />}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="divide-y divide-border">
-                    {module.lessons.map((lesson) => (
-                      <Link
-                        key={lesson.id}
-                        to={`/lesson/${lesson.id}`}
-                        className="flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors"
-                      >
-                        {lesson.type === "video" ? (
-                          <PlayCircle className="w-5 h-5 text-primary shrink-0" />
-                        ) : lesson.type === "pdf" ? (
-                          <FileText className="w-5 h-5 text-accent shrink-0" />
-                        ) : (
-                          <CheckCircle className="w-5 h-5 text-success shrink-0" />
-                        )}
-                        <span className="flex-1 text-sm">{lesson.title}</span>
-                        <span className="text-xs text-muted-foreground">{lesson.duration}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
