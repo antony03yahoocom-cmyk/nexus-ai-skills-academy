@@ -57,13 +57,14 @@ const SubscribePage = () => {
     setLoading(false);
   };
 
-  const handlePaystack = async () => {
+  const handlePaystack = async (plan: "monthly" | "onetime") => {
     if (!user || !session) {
       toast.error("Please log in first");
       return;
     }
     setLoading(true);
     try {
+      const amount = plan === "monthly" ? 150000 : 350000; // in kobo (KES cents)
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/paystack?action=initialize`,
         {
@@ -73,7 +74,7 @@ const SubscribePage = () => {
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            amount: 1500000,
+            amount,
             callback_url: `${window.location.origin}/subscribe?verify=true`,
           }),
         }
@@ -120,14 +121,16 @@ const SubscribePage = () => {
             </p>
           </div>
 
-          <div className="max-w-md mx-auto">
-            <div className="glass-card p-8 text-center glow-primary">
-              <h2 className="text-2xl font-bold mb-2">Premium Access</h2>
-              <div className="text-4xl font-bold gradient-text mb-2">₦15,000</div>
-              <p className="text-sm text-muted-foreground mb-6">One-time payment · Lifetime access</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {/* Monthly Plan */}
+            <div className="glass-card p-6 sm:p-8 text-center flex flex-col">
+              <h2 className="text-xl font-bold mb-1">Monthly</h2>
+              <p className="text-xs text-muted-foreground mb-4">Flexible billing</p>
+              <div className="text-4xl font-bold gradient-text mb-1">KES 1,500</div>
+              <p className="text-sm text-muted-foreground mb-6">per month</p>
 
-              <ul className="text-left space-y-3 mb-8">
-                {["All courses & future updates", "Video, PDF & text lessons", "Assignments & certificates", "Community access", "Priority support"].map((feature) => (
+              <ul className="text-left space-y-3 mb-8 flex-1">
+                {["All courses & updates", "Video, PDF, image & text lessons", "Assignments & certificates", "Cancel anytime"].map((feature) => (
                   <li key={feature} className="flex items-center gap-2 text-sm">
                     <Check className="w-4 h-4 text-success shrink-0" />
                     {feature}
@@ -135,16 +138,41 @@ const SubscribePage = () => {
                 ))}
               </ul>
 
-              <Button variant="hero" size="lg" className="w-full" onClick={handlePaystack} disabled={loading || !user}>
+              <Button variant="outline" size="lg" className="w-full" onClick={() => handlePaystack("monthly")} disabled={loading || !user}>
                 <CreditCard className="w-4 h-4 mr-2" />
-                {loading ? "Processing..." : user ? "Pay with Paystack" : "Log in to Subscribe"}
+                {loading ? "Processing..." : user ? "Subscribe Monthly" : "Log in to Subscribe"}
               </Button>
-
-              <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
-                <Shield className="w-3 h-3" />
-                Secured by Paystack
-              </div>
             </div>
+
+            {/* One-Time Plan */}
+            <div className="glass-card p-6 sm:p-8 text-center flex flex-col glow-primary relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">BEST VALUE</span>
+              </div>
+              <h2 className="text-xl font-bold mb-1">One-Time</h2>
+              <p className="text-xs text-muted-foreground mb-4">Pay once, learn forever</p>
+              <div className="text-4xl font-bold gradient-text mb-1">KES 3,500</div>
+              <p className="text-sm text-muted-foreground mb-6">lifetime access</p>
+
+              <ul className="text-left space-y-3 mb-8 flex-1">
+                {["All courses & future updates", "Video, PDF, image & text lessons", "Assignments & certificates", "Community access", "Priority support"].map((feature) => (
+                  <li key={feature} className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-success shrink-0" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <Button variant="hero" size="lg" className="w-full" onClick={() => handlePaystack("onetime")} disabled={loading || !user}>
+                <CreditCard className="w-4 h-4 mr-2" />
+                {loading ? "Processing..." : user ? "Pay Once — KES 3,500" : "Log in to Subscribe"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mt-6 text-xs text-muted-foreground">
+            <Shield className="w-3 h-3" />
+            Secured by Paystack
           </div>
         </div>
       </div>
