@@ -67,7 +67,7 @@ const AdminCoursesPage = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-courses-full"] });
       toast.success("Course created!");
       setShowCourseForm(false);
-      setCourseForm({ title: "", description: "", category: "AI", is_published: false });
+      setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 });
     },
     onError: (e: any) => toast.error(e.message),
   });
