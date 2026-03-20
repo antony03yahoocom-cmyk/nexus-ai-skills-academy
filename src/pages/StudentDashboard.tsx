@@ -1,13 +1,13 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
-import { BookOpen, Clock, Trophy, TrendingUp, Bell, Lock } from "lucide-react";
+import { BookOpen, Clock, Trophy, Bell, Lock, CreditCard, Crown } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const StudentDashboard = () => {
-  const { user, profile, hasAccess, trialDaysLeft } = useAuth();
+  const { user, profile, trialActive, trialDaysLeft, purchases, hasCourseAccess } = useAuth();
 
   const { data: enrollments = [] } = useQuery({
     queryKey: ["enrollments", user?.id],
@@ -46,11 +46,18 @@ const StudentDashboard = () => {
     enabled: !!user,
   });
 
+  const isPremium = profile?.is_premium;
+
   const stats = [
     { label: "Enrolled Courses", value: String(enrollments.length), icon: BookOpen, color: "text-primary" },
     { label: "Lessons Completed", value: String(completions.length), icon: Trophy, color: "text-accent" },
-    { label: "Trial Days Left", value: profile?.subscription_status === "paid" ? "∞" : String(trialDaysLeft), icon: Clock, color: "text-success" },
-    { label: "Announcements", value: String(announcements.length), icon: Bell, color: "text-primary" },
+    {
+      label: isPremium ? "Premium Access" : "Trial Days Left",
+      value: isPremium ? "∞" : String(trialDaysLeft),
+      icon: isPremium ? Crown : Clock,
+      color: isPremium ? "text-primary" : "text-success",
+    },
+    { label: "Courses Purchased", value: String(purchases.length), icon: CreditCard, color: "text-success" },
   ];
 
   return (
@@ -63,29 +70,30 @@ const StudentDashboard = () => {
             <p className="text-muted-foreground">Continue where you left off.</p>
           </div>
 
-          {/* Trial / subscription banner */}
-          {profile?.subscription_status === "paid" ? (
+          {/* Subscription banner */}
+          {isPremium ? (
             <div className="glass-card p-4 mb-8 border-success/30 bg-success/5 flex items-center gap-4">
-              <span className="text-sm font-medium text-success">✓ Premium Access Active</span>
+              <Crown className="w-5 h-5 text-success" />
+              <span className="text-sm font-medium text-success">Premium Access Active — All courses unlocked</span>
             </div>
-          ) : hasAccess ? (
+          ) : trialActive ? (
             <div className="glass-card p-4 mb-8 border-accent/30 bg-accent/5 flex items-center justify-between flex-wrap gap-4">
               <div>
                 <span className="text-sm font-medium text-accent">Free Trial Active</span>
-                <p className="text-xs text-muted-foreground">{trialDaysLeft} days remaining</p>
+                <p className="text-xs text-muted-foreground">{trialDaysLeft} days remaining · 1 course · First 7 lessons</p>
               </div>
               <Button variant="hero" size="sm" asChild>
-                <Link to="/subscribe">Subscribe Now</Link>
+                <Link to="/subscribe">Get Premium</Link>
               </Button>
             </div>
           ) : (
             <div className="glass-card p-4 mb-8 border-destructive/30 bg-destructive/5 flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-destructive" />
-                <span className="text-sm font-medium text-destructive">Trial Expired — Subscribe to continue</span>
+                <span className="text-sm font-medium text-destructive">Trial Expired — Purchase courses or get Premium</span>
               </div>
               <Button variant="hero" size="sm" asChild>
-                <Link to="/subscribe">Subscribe Now</Link>
+                <Link to="/subscribe">Get Premium</Link>
               </Button>
             </div>
           )}
@@ -110,20 +118,45 @@ const StudentDashboard = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {enrollments.map((enrollment: any) => (
-                <Link key={enrollment.id} to={`/courses/${enrollment.course_id}`} className="glass-card overflow-hidden group hover:border-primary/30 transition-all">
-                  <div className="h-28 bg-secondary flex items-center justify-center text-4xl">📚</div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-sm mb-3 group-hover:text-primary transition-colors">
-                      {enrollment.courses?.title ?? "Course"}
-                    </h3>
-                    <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all" style={{ width: `${enrollment.progress}%` }} />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">{enrollment.progress}% complete</p>
+              {enrollments.map((enrollment: any) => {
+                const cId = enrollment.course_id;
+                const hasAccess = hasCourseAccess(cId);
+                const coursePurchased = purchases.some((p) => p.course_id === cId);
+
+                return (
+                  <div key={enrollment.id} className="glass-card overflow-hidden group hover:border-primary/30 transition-all">
+                    <Link to={`/courses/${cId}`}>
+                      <div className="h-28 bg-secondary flex items-center justify-center text-4xl relative">
+                        📚
+                        {!hasAccess && (
+                          <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+                            <Lock className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-sm group-hover:text-primary transition-colors flex-1">
+                            {enrollment.courses?.title ?? "Course"}
+                          </h3>
+                          {coursePurchased && <span className="text-xs text-success font-medium">Paid</span>}
+                          {isPremium && <Crown className="w-3 h-3 text-primary" />}
+                          {!hasAccess && trialActive && profile?.trial_course_id !== cId && (
+                            <span className="text-xs text-muted-foreground">No access</span>
+                          )}
+                        </div>
+                        <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all" style={{ width: `${enrollment.progress}%` }} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">{enrollment.progress}% complete</p>
+                        {enrollment.courses?.price > 0 && !hasAccess && (
+                          <p className="text-xs text-primary font-medium mt-1">KES {enrollment.courses.price.toLocaleString()}</p>
+                        )}
+                      </div>
+                    </Link>
                   </div>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           )}
 
