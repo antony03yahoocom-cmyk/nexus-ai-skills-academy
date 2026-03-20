@@ -49,12 +49,17 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    if (action === "initialize") {
-      const { amount, callback_url, plan } = await req.json();
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-      // Amount should be in KES (Paystack uses the smallest unit — cents for KES)
-      // KES 1,000 = 100000, KES 2,500 = 250000, KES 5,000 = 500000
-      const finalAmount = amount || 100000;
+    if (action === "initialize") {
+      const { amount, callback_url, course_id, plan_type } = await req.json();
+
+      // plan_type: "course" (single course) or "premium" (all courses)
+      const isPremium = plan_type === "premium";
+      const finalAmount = amount || (isPremium ? 500000 : 150000); // KES in cents
 
       const response = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
@@ -70,12 +75,13 @@ serve(async (req) => {
           channels: ["mobile_money"],
           metadata: {
             user_id: userId,
-            plan: plan || "basic",
+            course_id: course_id || null,
+            plan_type: isPremium ? "premium" : "course",
             custom_fields: [
               {
-                display_name: "Plan",
-                variable_name: "plan",
-                value: plan || "basic",
+                display_name: "Plan Type",
+                variable_name: "plan_type",
+                value: isPremium ? "Premium (All Courses)" : "Single Course",
               },
             ],
           },
@@ -107,24 +113,37 @@ serve(async (req) => {
       }
 
       if (data.data?.status === "success") {
-        const adminClient = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
+        const metadata = data.data?.metadata || {};
+        const planType = metadata.plan_type;
+        const courseId = metadata.course_id;
 
-        const plan = data.data?.metadata?.plan || "basic";
+        if (planType === "premium") {
+          // Premium: mark profile as premium, set subscription_status to paid
+          await adminClient
+            .from("profiles")
+            .update({ is_premium: true, subscription_status: "paid" })
+            .eq("user_id", userId);
+        } else if (courseId) {
+          // Single course purchase
+          await adminClient
+            .from("course_purchases")
+            .upsert({
+              user_id: userId,
+              course_id: courseId,
+              amount: data.data.amount,
+              reference: reference,
+              status: "paid",
+              purchased_at: new Date().toISOString(),
+            }, { onConflict: "user_id,course_id" });
 
-        const { error: updateError } = await adminClient
-          .from("profiles")
-          .update({ subscription_status: "paid" })
-          .eq("user_id", userId);
-
-        if (updateError) {
-          console.error("Failed to update subscription:", updateError);
-          throw new Error("Payment verified but failed to update subscription");
+          // Also update general subscription_status to paid
+          await adminClient
+            .from("profiles")
+            .update({ subscription_status: "paid" })
+            .eq("user_id", userId);
         }
 
-        return new Response(JSON.stringify({ success: true, status: "paid", plan }), {
+        return new Response(JSON.stringify({ success: true, plan_type: planType, course_id: courseId }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

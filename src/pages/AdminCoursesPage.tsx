@@ -19,7 +19,7 @@ const AdminCoursesPage = () => {
   const [editingCourse, setEditingCourse] = useState<any>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
-  const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false });
+  const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false, price: 0 });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [showModuleForm, setShowModuleForm] = useState<string | null>(null);
   const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video" as string, content_text: "", content_url: "", module_id: "" });
@@ -60,28 +60,28 @@ const AdminCoursesPage = () => {
 
   const createCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").insert(courseForm);
+      const { error } = await supabase.from("courses").insert({ ...courseForm, price: courseForm.price || 0 });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-courses-full"] });
       toast.success("Course created!");
       setShowCourseForm(false);
-      setCourseForm({ title: "", description: "", category: "AI", is_published: false });
+      setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const updateCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").update(courseForm).eq("id", editingCourse.id);
+      const { error } = await supabase.from("courses").update({ ...courseForm, price: courseForm.price || 0 }).eq("id", editingCourse.id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-courses-full"] });
       toast.success("Course updated!");
       setEditingCourse(null);
-      setCourseForm({ title: "", description: "", category: "AI", is_published: false });
+      setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -188,7 +188,7 @@ const AdminCoursesPage = () => {
 
   const startEditCourse = (course: any) => {
     setEditingCourse(course);
-    setCourseForm({ title: course.title, description: course.description || "", category: course.category, is_published: course.is_published });
+    setCourseForm({ title: course.title, description: course.description || "", category: course.category, is_published: course.is_published, price: course.price || 0 });
   };
 
   return (
@@ -201,7 +201,7 @@ const AdminCoursesPage = () => {
               <h1 className="text-3xl font-bold">Manage Courses</h1>
               <p className="text-muted-foreground">Create and manage course content.</p>
             </div>
-            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false }); }}>
+            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 }); }}>
               <Plus className="w-4 h-4 mr-1" /> New Course
             </Button>
           </div>
@@ -227,6 +227,10 @@ const AdminCoursesPage = () => {
                 <div className="space-y-2 md:col-span-2">
                   <Label>Description</Label>
                   <Textarea value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} className="bg-secondary border-border" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Price (KES)</Label>
+                  <Input type="number" min="0" value={courseForm.price} onChange={(e) => setCourseForm({ ...courseForm, price: parseInt(e.target.value) || 0 })} className="bg-secondary border-border" placeholder="e.g. 1500" />
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="published" checked={courseForm.is_published} onChange={(e) => setCourseForm({ ...courseForm, is_published: e.target.checked })} />
@@ -260,6 +264,7 @@ const AdminCoursesPage = () => {
                           <Badge className={course.is_published ? "bg-success/10 text-success border-success/20" : "bg-secondary text-muted-foreground"}>
                             {course.is_published ? "Published" : "Draft"}
                           </Badge>
+                          <Badge variant="outline" className="text-xs">KES {(course.price || 0).toLocaleString()}</Badge>
                         </div>
                       </div>
                     </div>

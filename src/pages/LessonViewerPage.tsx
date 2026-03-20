@@ -5,14 +5,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 const LessonViewerPage = () => {
   const { lessonId } = useParams();
-  const { user, hasAccess } = useAuth();
+  const { user, profile, isAdmin, hasCourseAccess, canAccessLesson, trialActive, trialDaysLeft } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [submissionText, setSubmissionText] = useState("");
@@ -27,6 +27,21 @@ const LessonViewerPage = () => {
     enabled: !!lessonId,
   });
 
+  const courseId = (lesson as any)?.modules?.course_id;
+  const course = (lesson as any)?.modules?.courses;
+
+  // All lessons in course (flat, ordered)
+  const { data: allCourseLessons = [] } = useQuery({
+    queryKey: ["all-course-lessons", courseId],
+    queryFn: async () => {
+      const { data: mods } = await supabase.from("modules").select("id").eq("course_id", courseId!).order("sort_order");
+      if (!mods?.length) return [];
+      const { data } = await supabase.from("lessons").select("*").in("module_id", mods.map((m: any) => m.id)).order("sort_order");
+      return data ?? [];
+    },
+    enabled: !!courseId,
+  });
+
   const { data: moduleLessons = [] } = useQuery({
     queryKey: ["module-lessons", lesson?.module_id],
     queryFn: async () => {
@@ -36,14 +51,18 @@ const LessonViewerPage = () => {
     enabled: !!lesson?.module_id,
   });
 
-  const { data: completion } = useQuery({
-    queryKey: ["completion", user?.id, lessonId],
+  const { data: allCompletions = [] } = useQuery({
+    queryKey: ["all-completions", user?.id, courseId],
     queryFn: async () => {
-      const { data } = await supabase.from("lesson_completions").select("*").eq("user_id", user!.id).eq("lesson_id", lessonId!).maybeSingle();
-      return data;
+      const ids = allCourseLessons.map((l: any) => l.id);
+      if (!ids.length) return [];
+      const { data } = await supabase.from("lesson_completions").select("lesson_id").eq("user_id", user!.id).in("lesson_id", ids);
+      return data?.map((c: any) => c.lesson_id) ?? [];
     },
-    enabled: !!user && !!lessonId,
+    enabled: !!user && allCourseLessons.length > 0,
   });
+
+  const currentCompletion = allCompletions.includes(lessonId!);
 
   const { data: assignments = [] } = useQuery({
     queryKey: ["lesson-assignments", lessonId],
@@ -60,6 +79,7 @@ const LessonViewerPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-completions"] });
       queryClient.invalidateQueries({ queryKey: ["completion"] });
       toast.success("Lesson marked as complete!");
     },
@@ -92,22 +112,58 @@ const LessonViewerPage = () => {
     else { toast.success("Assignment submitted!"); setSubmissionText(""); }
   };
 
-  if (!hasAccess) {
+  // Determine access
+  const globalIndex = useMemo(() => {
+    return allCourseLessons.findIndex((l: any) => l.id === lessonId);
+  }, [allCourseLessons, lessonId]);
+
+  const hasAccess = useMemo(() => {
+    if (!courseId || !user) return false;
+    if (isAdmin) return true;
+    // Check course-level access
+    if (!hasCourseAccess(courseId)) return false;
+    // Check lesson-level (trial limit)
+    if (!canAccessLesson(courseId, globalIndex)) return false;
+    // Sequential: previous lesson must be completed (or first lesson)
+    if (globalIndex === 0) return true;
+    const prevLessonId = allCourseLessons[globalIndex - 1]?.id;
+    return allCompletions.includes(prevLessonId);
+  }, [courseId, user, isAdmin, hasCourseAccess, canAccessLesson, globalIndex, allCourseLessons, allCompletions]);
+
+  if (!lesson) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
+
+  if (!hasAccess && !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="glass-card p-8 text-center max-w-md">
           <Lock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
-          <p className="text-muted-foreground mb-4">Your free trial has expired. Please subscribe to continue learning.</p>
-          <Button variant="hero" asChild><Link to="/subscribe">Subscribe Now</Link></Button>
+          <h2 className="text-xl font-bold mb-2">Lesson Locked</h2>
+          <p className="text-muted-foreground mb-4">
+            {globalIndex > 0 && !allCompletions.includes(allCourseLessons[globalIndex - 1]?.id)
+              ? "Complete the previous lesson first to unlock this one."
+              : trialActive && globalIndex >= 7
+              ? "This lesson is beyond the trial limit. Purchase the course for full access."
+              : "Purchase this course or get Premium to access this lesson."}
+          </p>
+          <div className="flex flex-col gap-2">
+            {courseId && (
+              <Button variant="hero" asChild>
+                <Link to={`/courses/${courseId}`}>Back to Course</Link>
+              </Button>
+            )}
+            <Button variant="outline" asChild>
+              <Link to="/subscribe">Get Premium</Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!lesson) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
-
-  const courseId = (lesson as any).modules?.course_id;
+  // Find next lesson
+  const nextLesson = globalIndex >= 0 && globalIndex < allCourseLessons.length - 1
+    ? allCourseLessons[globalIndex + 1]
+    : null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
@@ -117,7 +173,7 @@ const LessonViewerPage = () => {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="font-semibold truncate">{lesson.title}</h1>
-          {completion && <span className="text-xs text-success ml-auto">✓ Completed</span>}
+          {currentCompletion && <span className="text-xs text-success ml-auto">✓ Completed</span>}
         </div>
 
         {/* Content area */}
@@ -151,7 +207,14 @@ const LessonViewerPage = () => {
           {lesson.content_text && <p className="text-muted-foreground leading-relaxed mb-8 whitespace-pre-wrap">{lesson.content_text}</p>}
 
           <div className="flex gap-3 mb-8">
-            {!completion && <Button variant="hero" onClick={() => markComplete.mutate()}>Mark as Complete</Button>}
+            {!currentCompletion && (
+              <Button variant="hero" onClick={() => markComplete.mutate()}>Mark as Complete</Button>
+            )}
+            {currentCompletion && nextLesson && (
+              <Button variant="hero" asChild>
+                <Link to={`/lesson/${nextLesson.id}`}>Next Lesson →</Link>
+              </Button>
+            )}
           </div>
 
           {/* Assignments */}
@@ -181,14 +244,37 @@ const LessonViewerPage = () => {
       <div className="lg:w-80 border-l border-border bg-card/50">
         <div className="p-4 border-b border-border"><h3 className="font-semibold text-sm">Module Lessons</h3></div>
         <div className="divide-y divide-border">
-          {moduleLessons.map((l: any) => (
-            <Link key={l.id} to={`/lesson/${l.id}`} className={`flex items-center gap-3 p-4 text-sm transition-colors ${l.id === lessonId ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-secondary/50"}`}>
-              {l.content_type === "video" ? <PlayCircle className={`w-4 h-4 shrink-0 ${l.id === lessonId ? "text-primary" : "text-muted-foreground"}`} />
-                : l.content_type === "pdf" ? <FileText className="w-4 h-4 text-accent shrink-0" />
-                : <CheckCircle className="w-4 h-4 text-success shrink-0" />}
-              <span className={l.id === lessonId ? "text-foreground font-medium" : "text-muted-foreground"}>{l.title}</span>
-            </Link>
-          ))}
+          {moduleLessons.map((l: any) => {
+            const idx = allCourseLessons.findIndex((al: any) => al.id === l.id);
+            const completed = allCompletions.includes(l.id);
+            const accessible = isAdmin || (
+              hasCourseAccess(courseId) &&
+              canAccessLesson(courseId, idx) &&
+              (idx === 0 || allCompletions.includes(allCourseLessons[idx - 1]?.id))
+            );
+
+            return (
+              <div
+                key={l.id}
+                className={`flex items-center gap-3 p-4 text-sm transition-colors ${
+                  l.id === lessonId ? "bg-primary/10 border-l-2 border-l-primary" :
+                  accessible ? "hover:bg-secondary/50 cursor-pointer" : "opacity-50"
+                }`}
+                onClick={() => accessible && navigate(`/lesson/${l.id}`)}
+              >
+                {completed ? (
+                  <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                ) : accessible ? (
+                  l.content_type === "video" ? <PlayCircle className={`w-4 h-4 shrink-0 ${l.id === lessonId ? "text-primary" : "text-muted-foreground"}`} />
+                    : l.content_type === "pdf" ? <FileText className="w-4 h-4 text-accent shrink-0" />
+                    : <CheckCircle className="w-4 h-4 text-muted-foreground shrink-0" />
+                ) : (
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+                <span className={l.id === lessonId ? "text-foreground font-medium" : "text-muted-foreground"}>{l.title}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
