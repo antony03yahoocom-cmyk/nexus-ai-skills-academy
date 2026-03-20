@@ -70,6 +70,44 @@ export type Database = {
           },
         ]
       }
+      course_purchases: {
+        Row: {
+          amount: number
+          course_id: string
+          id: string
+          purchased_at: string
+          reference: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          course_id: string
+          id?: string
+          purchased_at?: string
+          reference?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          course_id?: string
+          id?: string
+          purchased_at?: string
+          reference?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_purchases_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           category: string
@@ -78,6 +116,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_published: boolean
+          price: number
           title: string
           updated_at: string
         }
@@ -88,6 +127,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_published?: boolean
+          price?: number
           title: string
           updated_at?: string
         }
@@ -98,6 +138,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_published?: boolean
+          price?: number
           title?: string
           updated_at?: string
         }
@@ -243,7 +284,9 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_premium: boolean
           subscription_status: string
+          trial_course_id: string | null
           trial_start_date: string
           updated_at: string
           user_id: string
@@ -253,7 +296,9 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_premium?: boolean
           subscription_status?: string
+          trial_course_id?: string | null
           trial_start_date?: string
           updated_at?: string
           user_id: string
@@ -263,12 +308,22 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_premium?: boolean
           subscription_status?: string
+          trial_course_id?: string | null
           trial_start_date?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_trial_course_id_fkey"
+            columns: ["trial_course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submissions: {
         Row: {
