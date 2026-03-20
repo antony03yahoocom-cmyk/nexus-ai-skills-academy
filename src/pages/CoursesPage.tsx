@@ -52,7 +52,10 @@ const CoursesPage = () => {
                   </div>
                   <div className="p-6">
                     <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">{course.category}</span>
-                    <h3 className="font-semibold text-foreground mt-3 mb-3 group-hover:text-primary transition-colors">{course.title}</h3>
+                    <h3 className="font-semibold text-foreground mt-3 mb-2 group-hover:text-primary transition-colors">{course.title}</h3>
+                    <p className="text-lg font-bold text-primary mb-3">
+                      {course.price ? `KES ${course.price.toLocaleString()}` : "Free"}
+                    </p>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{moduleCounts[course.id] || 0} modules</span>
                     </div>
