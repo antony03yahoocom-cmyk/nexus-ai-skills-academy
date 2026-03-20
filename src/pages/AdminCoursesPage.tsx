@@ -228,6 +228,10 @@ const AdminCoursesPage = () => {
                   <Label>Description</Label>
                   <Textarea value={courseForm.description} onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })} className="bg-secondary border-border" />
                 </div>
+                <div className="space-y-2">
+                  <Label>Price (KES)</Label>
+                  <Input type="number" min="0" value={courseForm.price} onChange={(e) => setCourseForm({ ...courseForm, price: parseInt(e.target.value) || 0 })} className="bg-secondary border-border" placeholder="e.g. 1500" />
+                </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="published" checked={courseForm.is_published} onChange={(e) => setCourseForm({ ...courseForm, is_published: e.target.checked })} />
                   <Label htmlFor="published">Published</Label>
