@@ -60,7 +60,7 @@ const AdminCoursesPage = () => {
 
   const createCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").insert(courseForm);
+      const { error } = await supabase.from("courses").insert({ ...courseForm, price: courseForm.price || 0 });
       if (error) throw error;
     },
     onSuccess: () => {
