@@ -264,6 +264,7 @@ const AdminCoursesPage = () => {
                           <Badge className={course.is_published ? "bg-success/10 text-success border-success/20" : "bg-secondary text-muted-foreground"}>
                             {course.is_published ? "Published" : "Draft"}
                           </Badge>
+                          <Badge variant="outline" className="text-xs">KES {(course.price || 0).toLocaleString()}</Badge>
                         </div>
                       </div>
                     </div>
