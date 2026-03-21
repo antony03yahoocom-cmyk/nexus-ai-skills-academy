@@ -1,11 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, Users, Bell, Settings, LogOut, Cpu, Upload, Megaphone } from "lucide-react";
+import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Cpu, Megaphone, FolderOpen, Award } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const adminLinks = [
   { to: "/admin", icon: LayoutDashboard, label: "Overview" },
   { to: "/admin/courses", icon: BookOpen, label: "Manage Courses" },
   { to: "/admin/students", icon: Users, label: "Students" },
+  { to: "/admin/projects", icon: FolderOpen, label: "Projects" },
+  { to: "/admin/certificates", icon: Award, label: "Certificates" },
   { to: "/admin/announcements", icon: Megaphone, label: "Announcements" },
   { to: "/admin/settings", icon: Settings, label: "Settings" },
 ];
