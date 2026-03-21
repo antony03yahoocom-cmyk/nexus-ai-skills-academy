@@ -70,6 +70,44 @@ export type Database = {
           },
         ]
       }
+      certificates: {
+        Row: {
+          certificate_link: string | null
+          course_id: string
+          created_at: string
+          id: string
+          issued_date: string | null
+          status: Database["public"]["Enums"]["certificate_status"]
+          student_id: string
+        }
+        Insert: {
+          certificate_link?: string | null
+          course_id: string
+          created_at?: string
+          id?: string
+          issued_date?: string | null
+          status?: Database["public"]["Enums"]["certificate_status"]
+          student_id: string
+        }
+        Update: {
+          certificate_link?: string | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          issued_date?: string | null
+          status?: Database["public"]["Enums"]["certificate_status"]
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_purchases: {
         Row: {
           amount: number
@@ -325,6 +363,53 @@ export type Database = {
           },
         ]
       }
+      projects: {
+        Row: {
+          admin_feedback: string | null
+          course_id: string
+          created_at: string
+          description: string | null
+          id: string
+          project_files: Json | null
+          public_visibility: boolean
+          status: Database["public"]["Enums"]["project_status"]
+          student_id: string
+          title: string
+        }
+        Insert: {
+          admin_feedback?: string | null
+          course_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          project_files?: Json | null
+          public_visibility?: boolean
+          status?: Database["public"]["Enums"]["project_status"]
+          student_id: string
+          title: string
+        }
+        Update: {
+          admin_feedback?: string | null
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          project_files?: Json | null
+          public_visibility?: boolean
+          status?: Database["public"]["Enums"]["project_status"]
+          student_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submissions: {
         Row: {
           assignment_id: string
@@ -393,6 +478,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      certificate_status: "Pending" | "Issued"
+      project_status: "Draft" | "Submitted" | "Approved" | "Rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -521,6 +608,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      certificate_status: ["Pending", "Issued"],
+      project_status: ["Draft", "Submitted", "Approved", "Rejected"],
     },
   },
 } as const
