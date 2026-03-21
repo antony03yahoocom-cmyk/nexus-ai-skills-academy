@@ -1,10 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, Trophy, Bell, Settings, LogOut, Cpu, CreditCard } from "lucide-react";
+import { LayoutDashboard, BookOpen, Bell, Settings, LogOut, Cpu, CreditCard, FolderOpen, Award } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const studentLinks = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/courses", icon: BookOpen, label: "Browse Courses" },
+  { to: "/dashboard/projects", icon: FolderOpen, label: "My Projects" },
+  { to: "/dashboard/certificates", icon: Award, label: "Certificates" },
   { to: "/dashboard/notifications", icon: Bell, label: "Notifications" },
   { to: "/subscribe", icon: CreditCard, label: "Subscription" },
   { to: "/dashboard/settings", icon: Settings, label: "Settings" },

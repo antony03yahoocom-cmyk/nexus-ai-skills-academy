@@ -13,12 +13,17 @@ import CoursesPage from "./pages/CoursesPage.tsx";
 import CourseDetailPage from "./pages/CourseDetailPage.tsx";
 import LessonViewerPage from "./pages/LessonViewerPage.tsx";
 import StudentDashboard from "./pages/StudentDashboard.tsx";
+import StudentProjectsPage from "./pages/StudentProjectsPage.tsx";
+import StudentCertificatesPage from "./pages/StudentCertificatesPage.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminCoursesPage from "./pages/AdminCoursesPage.tsx";
 import AdminStudentsPage from "./pages/AdminStudentsPage.tsx";
 import AdminAnnouncementsPage from "./pages/AdminAnnouncementsPage.tsx";
 import AdminSettingsPage from "./pages/AdminSettingsPage.tsx";
+import AdminProjectsPage from "./pages/AdminProjectsPage.tsx";
+import AdminCertificatesPage from "./pages/AdminCertificatesPage.tsx";
 import SubscribePage from "./pages/SubscribePage.tsx";
+import PortfolioPage from "./pages/PortfolioPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -36,14 +41,19 @@ const App = () => (
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/courses/:courseId" element={<CourseDetailPage />} />
             <Route path="/subscribe" element={<SubscribePage />} />
+            <Route path="/portfolio" element={<PortfolioPage />} />
             <Route path="/lesson/:lessonId" element={<ProtectedRoute><LessonViewerPage /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/projects" element={<ProtectedRoute><StudentProjectsPage /></ProtectedRoute>} />
+            <Route path="/dashboard/certificates" element={<ProtectedRoute><StudentCertificatesPage /></ProtectedRoute>} />
             <Route path="/dashboard/*" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/courses" element={<AdminRoute><AdminCoursesPage /></AdminRoute>} />
             <Route path="/admin/students" element={<AdminRoute><AdminStudentsPage /></AdminRoute>} />
             <Route path="/admin/announcements" element={<AdminRoute><AdminAnnouncementsPage /></AdminRoute>} />
             <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+            <Route path="/admin/projects" element={<AdminRoute><AdminProjectsPage /></AdminRoute>} />
+            <Route path="/admin/certificates" element={<AdminRoute><AdminCertificatesPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
