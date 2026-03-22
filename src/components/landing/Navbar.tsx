@@ -18,6 +18,7 @@ const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-8">
           <Link to="/courses" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Courses</Link>
+          <Link to="/portfolio" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Portfolio</Link>
           {user ? (
             <>
               <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Dashboard</Link>
@@ -39,6 +40,7 @@ const Navbar = () => {
       {mobileOpen && (
         <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-4 flex flex-col gap-3">
           <Link to="/courses" className="text-sm py-2 text-muted-foreground" onClick={() => setMobileOpen(false)}>Courses</Link>
+          <Link to="/portfolio" className="text-sm py-2 text-muted-foreground" onClick={() => setMobileOpen(false)}>Portfolio</Link>
           {user ? (
             <>
               <Link to="/dashboard" className="text-sm py-2 text-muted-foreground" onClick={() => setMobileOpen(false)}>Dashboard</Link>
