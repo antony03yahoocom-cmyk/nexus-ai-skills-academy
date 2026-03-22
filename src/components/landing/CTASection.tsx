@@ -10,10 +10,10 @@ const CTASection = () => {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 bg-primary/20 blur-[100px] rounded-full" />
           <div className="relative z-10">
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Ready to Level Up?
+              Start Your Journey Today
             </h2>
             <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
-              Start your 30-day free trial today. Access all courses, projects, and community features.
+              Join thousands of learners building the future. 7-day free trial, no credit card required.
             </p>
             <Button variant="hero" size="lg" asChild>
               <Link to="/signup">

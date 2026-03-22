@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock, Image, ExternalLink } from "lucide-react";
+import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock, Image, ExternalLink, Download, Paperclip, Send, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,8 @@ import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 const LessonViewerPage = () => {
   const { lessonId } = useParams();
@@ -29,12 +31,13 @@ const LessonViewerPage = () => {
 
   const courseId = (lesson as any)?.modules?.course_id;
   const course = (lesson as any)?.modules?.courses;
+  const currentModule = (lesson as any)?.modules;
 
   // All lessons in course (flat, ordered)
   const { data: allCourseLessons = [] } = useQuery({
     queryKey: ["all-course-lessons", courseId],
     queryFn: async () => {
-      const { data: mods } = await supabase.from("modules").select("id").eq("course_id", courseId!).order("sort_order");
+      const { data: mods } = await supabase.from("modules").select("*").eq("course_id", courseId!).order("sort_order");
       if (!mods?.length) return [];
       const { data } = await supabase.from("lessons").select("*").in("module_id", mods.map((m: any) => m.id)).order("sort_order");
       return data ?? [];
@@ -42,13 +45,13 @@ const LessonViewerPage = () => {
     enabled: !!courseId,
   });
 
-  const { data: moduleLessons = [] } = useQuery({
-    queryKey: ["module-lessons", lesson?.module_id],
+  const { data: modules = [] } = useQuery({
+    queryKey: ["course-modules-viewer", courseId],
     queryFn: async () => {
-      const { data } = await supabase.from("lessons").select("*").eq("module_id", lesson!.module_id).order("sort_order");
+      const { data } = await supabase.from("modules").select("*").eq("course_id", courseId!).order("sort_order");
       return data ?? [];
     },
-    enabled: !!lesson?.module_id,
+    enabled: !!courseId,
   });
 
   const { data: allCompletions = [] } = useQuery({
@@ -62,6 +65,32 @@ const LessonViewerPage = () => {
     enabled: !!user && allCourseLessons.length > 0,
   });
 
+  // Fetch all submissions for this course's lessons to check assignment approval
+  const { data: allSubmissions = [] } = useQuery({
+    queryKey: ["all-submissions", user?.id, courseId],
+    queryFn: async () => {
+      const lessonIds = allCourseLessons.map((l: any) => l.id);
+      if (!lessonIds.length) return [];
+      const { data: assigns } = await supabase.from("assignments").select("id, lesson_id").in("lesson_id", lessonIds);
+      if (!assigns?.length) return [];
+      const { data } = await supabase.from("submissions").select("*, assignments(lesson_id)").eq("user_id", user!.id).in("assignment_id", assigns.map((a: any) => a.id));
+      return data ?? [];
+    },
+    enabled: !!user && allCourseLessons.length > 0,
+  });
+
+  // All assignments for this course
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["all-assignments", courseId],
+    queryFn: async () => {
+      const lessonIds = allCourseLessons.map((l: any) => l.id);
+      if (!lessonIds.length) return [];
+      const { data } = await supabase.from("assignments").select("*").in("lesson_id", lessonIds);
+      return data ?? [];
+    },
+    enabled: allCourseLessons.length > 0,
+  });
+
   const currentCompletion = allCompletions.includes(lessonId!);
 
   const { data: assignments = [] } = useQuery({
@@ -73,6 +102,28 @@ const LessonViewerPage = () => {
     enabled: !!lessonId,
   });
 
+  // Existing submissions for this lesson's assignments
+  const { data: mySubmissions = [] } = useQuery({
+    queryKey: ["my-submissions", user?.id, lessonId],
+    queryFn: async () => {
+      const assignIds = assignments.map((a: any) => a.id);
+      if (!assignIds.length) return [];
+      const { data } = await supabase.from("submissions").select("*").eq("user_id", user!.id).in("assignment_id", assignIds);
+      return data ?? [];
+    },
+    enabled: !!user && assignments.length > 0,
+  });
+
+  // Check if lesson's assignment is approved (for strict unlock)
+  const isLessonAssignmentApproved = (lId: string) => {
+    const lessonAssigns = allAssignments.filter((a: any) => a.lesson_id === lId);
+    if (lessonAssigns.length === 0) return true; // no assignment = auto-approved
+    return lessonAssigns.every((a: any) => {
+      const sub = allSubmissions.find((s: any) => s.assignment_id === a.id);
+      return sub && sub.status === "Approved";
+    });
+  };
+
   const markComplete = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("lesson_completions").insert({ user_id: user!.id, lesson_id: lessonId! });
@@ -80,7 +131,6 @@ const LessonViewerPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-completions"] });
-      queryClient.invalidateQueries({ queryKey: ["completion"] });
       toast.success("Lesson marked as complete!");
     },
     onError: (e: any) => toast.error(e.message),
@@ -89,30 +139,38 @@ const LessonViewerPage = () => {
   const submitAssignment = async (assignmentId: string) => {
     setSubmitting(true);
     const fileInput = document.getElementById("submission-file") as HTMLInputElement;
-    let fileUrl: string | null = null;
+    let fileUrls: string[] = [];
 
-    if (fileInput?.files?.[0]) {
-      const file = fileInput.files[0];
-      const path = `${user!.id}/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage.from("submissions").upload(path, file);
-      if (error) { toast.error("Upload failed"); setSubmitting(false); return; }
-      const { data } = supabase.storage.from("submissions").getPublicUrl(path);
-      fileUrl = data.publicUrl;
+    if (fileInput?.files?.length) {
+      for (const file of Array.from(fileInput.files)) {
+        const path = `${user!.id}/${Date.now()}_${file.name}`;
+        const { error } = await supabase.storage.from("assignment-files").upload(path, file);
+        if (error) { toast.error("Upload failed"); setSubmitting(false); return; }
+        const { data } = supabase.storage.from("assignment-files").getPublicUrl(path);
+        fileUrls.push(data.publicUrl);
+      }
     }
 
     const { error } = await supabase.from("submissions").insert({
       assignment_id: assignmentId,
       user_id: user!.id,
       text_submission: submissionText || null,
-      file_url: fileUrl,
-    });
+      file_url: fileUrls[0] || null,
+      submission_files: fileUrls,
+      status: "Pending",
+    } as any);
 
     setSubmitting(false);
     if (error) toast.error(error.message);
-    else { toast.success("Assignment submitted!"); setSubmissionText(""); }
+    else {
+      toast.success("Assignment submitted!");
+      setSubmissionText("");
+      queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["all-submissions"] });
+    }
   };
 
-  // Determine access
+  // Determine access - STRICT: previous lesson's assignment must be approved
   const globalIndex = useMemo(() => {
     return allCourseLessons.findIndex((l: any) => l.id === lessonId);
   }, [allCourseLessons, lessonId]);
@@ -120,97 +178,138 @@ const LessonViewerPage = () => {
   const hasAccess = useMemo(() => {
     if (!courseId || !user) return false;
     if (isAdmin) return true;
-    // Check course-level access
     if (!hasCourseAccess(courseId)) return false;
-    // Check lesson-level (trial limit)
     if (!canAccessLesson(courseId, globalIndex)) return false;
-    // Sequential: previous lesson must be completed (or first lesson)
     if (globalIndex === 0) return true;
-    const prevLessonId = allCourseLessons[globalIndex - 1]?.id;
-    return allCompletions.includes(prevLessonId);
-  }, [courseId, user, isAdmin, hasCourseAccess, canAccessLesson, globalIndex, allCourseLessons, allCompletions]);
+    const prevLesson = allCourseLessons[globalIndex - 1];
+    if (!prevLesson) return false;
+    // Previous lesson must be completed AND its assignment approved
+    return allCompletions.includes(prevLesson.id) && isLessonAssignmentApproved(prevLesson.id);
+  }, [courseId, user, isAdmin, hasCourseAccess, canAccessLesson, globalIndex, allCourseLessons, allCompletions, allAssignments, allSubmissions]);
+
+  // Check if current lesson's assignments are all approved
+  const currentAssignmentsApproved = isLessonAssignmentApproved(lessonId!);
+  const hasAssignments = assignments.length > 0;
+
+  // Can mark complete only if assignments approved (or no assignments)
+  const canComplete = !currentCompletion && currentAssignmentsApproved;
+
+  // Progress calculation
+  const completedCount = allCompletions.length;
+  const totalLessons = allCourseLessons.length;
+  const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
   if (!lesson) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
 
   if (!hasAccess && !isAdmin) {
+    const prevLesson = globalIndex > 0 ? allCourseLessons[globalIndex - 1] : null;
+    const prevNotCompleted = prevLesson && !allCompletions.includes(prevLesson.id);
+    const prevAssignmentPending = prevLesson && !isLessonAssignmentApproved(prevLesson.id);
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="glass-card p-8 text-center max-w-md">
           <Lock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Lesson Locked</h2>
           <p className="text-muted-foreground mb-4">
-            {globalIndex > 0 && !allCompletions.includes(allCourseLessons[globalIndex - 1]?.id)
+            {prevAssignmentPending
+              ? "Complete and get your assignment approved to unlock this lesson."
+              : prevNotCompleted
               ? "Complete the previous lesson first to unlock this one."
               : trialActive && globalIndex >= 7
               ? "This lesson is beyond the trial limit. Purchase the course for full access."
               : "Purchase this course or get Premium to access this lesson."}
           </p>
           <div className="flex flex-col gap-2">
-            {courseId && (
-              <Button variant="hero" asChild>
-                <Link to={`/courses/${courseId}`}>Back to Course</Link>
-              </Button>
-            )}
-            <Button variant="outline" asChild>
-              <Link to="/subscribe">Get Premium</Link>
-            </Button>
+            {courseId && <Button variant="hero" asChild><Link to={`/courses/${courseId}`}>Back to Course</Link></Button>}
+            <Button variant="outline" asChild><Link to="/subscribe">Get Premium</Link></Button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Find next lesson
-  const nextLesson = globalIndex >= 0 && globalIndex < allCourseLessons.length - 1
-    ? allCourseLessons[globalIndex + 1]
-    : null;
+  const nextLesson = globalIndex >= 0 && globalIndex < allCourseLessons.length - 1 ? allCourseLessons[globalIndex + 1] : null;
+  const canGoNext = currentCompletion && currentAssignmentsApproved && nextLesson;
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
-      <div className="flex-1 lg:w-3/4">
-        <div className="p-4 border-b border-border flex items-center gap-3">
+      {/* Main content */}
+      <div className="flex-1 lg:w-3/4 overflow-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border p-4 flex items-center gap-3">
           <Link to={courseId ? `/courses/${courseId}` : "/courses"} className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="font-semibold truncate">{lesson.title}</h1>
-          {currentCompletion && <span className="text-xs text-success ml-auto">✓ Completed</span>}
+          <div className="flex-1 min-w-0">
+            <h1 className="font-semibold truncate">{lesson.title}</h1>
+            <p className="text-xs text-muted-foreground truncate">{course?.title} · Lesson {globalIndex + 1} of {totalLessons}</p>
+          </div>
+          {currentCompletion && <Badge className="bg-success/10 text-success border-success/20 shrink-0">✓ Completed</Badge>}
         </div>
 
-        {/* Content area */}
-        {lesson.content_type === "video" && lesson.file_url ? (
-          <div className="aspect-video bg-card">
-            <video controls className="w-full h-full" src={lesson.file_url} />
-          </div>
-        ) : lesson.content_type === "pdf" && lesson.file_url ? (
-          <div className="aspect-video bg-card">
-            <iframe src={lesson.file_url} className="w-full h-full" title={lesson.title} />
-          </div>
-        ) : lesson.content_type === "image" && lesson.file_url ? (
-          <div className="bg-card flex items-center justify-center p-6">
-            <img src={lesson.file_url} alt={lesson.title} className="max-w-full max-h-[70vh] rounded-lg object-contain" />
-          </div>
-        ) : lesson.content_type === "url" && lesson.file_url ? (
-          <div className="p-6">
-            <a href={lesson.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-lg">
-              <ExternalLink className="w-5 h-5" />
-              Open External Resource
-            </a>
-            <iframe src={lesson.file_url} className="w-full h-[70vh] mt-4 rounded-lg border border-border" title={lesson.title} />
-          </div>
-        ) : lesson.content_type === "video" ? (
-          <div className="aspect-video bg-card flex items-center justify-center">
-            <div className="text-center"><PlayCircle className="w-16 h-16 text-primary mx-auto mb-4 opacity-50" /><p className="text-muted-foreground">No video uploaded yet</p></div>
-          </div>
-        ) : null}
+        {/* Video/Content area */}
+        <div className="bg-card">
+          {lesson.content_type === "video" && lesson.file_url ? (
+            <div className="aspect-video">
+              {lesson.file_url.includes("youtube.com") || lesson.file_url.includes("youtu.be") ? (
+                <iframe
+                  src={lesson.file_url.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title={lesson.title}
+                />
+              ) : (
+                <video controls className="w-full h-full" src={lesson.file_url} />
+              )}
+            </div>
+          ) : lesson.content_type === "pdf" && lesson.file_url ? (
+            <div className="aspect-video">
+              <iframe src={lesson.file_url} className="w-full h-full" title={lesson.title} />
+            </div>
+          ) : lesson.content_type === "image" && lesson.file_url ? (
+            <div className="flex items-center justify-center p-6">
+              <img src={lesson.file_url} alt={lesson.title} className="max-w-full max-h-[70vh] rounded-lg object-contain" />
+            </div>
+          ) : lesson.content_type === "url" && lesson.file_url ? (
+            <div className="p-6">
+              <a href={lesson.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-lg mb-4">
+                <ExternalLink className="w-5 h-5" />
+                Open External Resource
+              </a>
+              <iframe src={lesson.file_url} className="w-full h-[60vh] rounded-lg border border-border" title={lesson.title} />
+            </div>
+          ) : lesson.content_type === "video" ? (
+            <div className="aspect-video flex items-center justify-center">
+              <div className="text-center"><PlayCircle className="w-16 h-16 text-primary mx-auto mb-4 opacity-50" /><p className="text-muted-foreground">No video uploaded yet</p></div>
+            </div>
+          ) : null}
+        </div>
 
-        <div className="p-6 max-w-3xl">
-          {lesson.content_text && <p className="text-muted-foreground leading-relaxed mb-8 whitespace-pre-wrap">{lesson.content_text}</p>}
+        {/* Lesson text content */}
+        <div className="p-6 max-w-3xl mx-auto">
+          {lesson.content_text && (
+            <div className="prose prose-invert max-w-none mb-8">
+              <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{lesson.content_text}</div>
+            </div>
+          )}
 
-          <div className="flex gap-3 mb-8">
-            {!currentCompletion && (
-              <Button variant="hero" onClick={() => markComplete.mutate()}>Mark as Complete</Button>
+          {/* Progress / Actions */}
+          <div className="flex flex-wrap gap-3 mb-8">
+            {canComplete && (
+              <Button variant="hero" onClick={() => markComplete.mutate()}>
+                <CheckCircle className="w-4 h-4 mr-1" />
+                Mark as Complete
+              </Button>
             )}
-            {currentCompletion && nextLesson && (
+            {hasAssignments && !currentAssignmentsApproved && currentCompletion && (
+              <div className="flex items-center gap-2 text-sm text-accent">
+                <AlertCircle className="w-4 h-4" />
+                Assignment approval required to unlock next lesson
+              </div>
+            )}
+            {canGoNext && (
               <Button variant="hero" asChild>
                 <Link to={`/lesson/${nextLesson.id}`}>Next Lesson →</Link>
               </Button>
@@ -219,63 +318,129 @@ const LessonViewerPage = () => {
 
           {/* Assignments */}
           {assignments.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Assignments</h3>
-              {assignments.map((a: any) => (
-                <div key={a.id} className="glass-card p-4 space-y-3">
-                  <h4 className="font-medium text-sm">{a.title}</h4>
-                  {a.description && <p className="text-xs text-muted-foreground">{a.description}</p>}
-                  <Textarea placeholder="Your answer..." value={submissionText} onChange={(e) => setSubmissionText(e.target.value)} className="bg-secondary border-border text-sm" />
-                  <div className="space-y-1">
-                    <Label className="text-xs">Attach file (optional)</Label>
-                    <Input id="submission-file" type="file" className="bg-secondary border-border text-sm" />
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Paperclip className="w-5 h-5 text-primary" />
+                Assignments
+              </h3>
+              {assignments.map((a: any) => {
+                const existingSub = mySubmissions.find((s: any) => s.assignment_id === a.id);
+                const subStatus = existingSub?.status;
+                const canResubmit = subStatus === "Rejected";
+
+                return (
+                  <div key={a.id} className="glass-card p-5 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-semibold">{a.title}</h4>
+                        {a.objective && <p className="text-sm text-muted-foreground mt-1"><strong>Objective:</strong> {a.objective}</p>}
+                        {a.task && <p className="text-sm text-muted-foreground mt-1"><strong>Task:</strong> {a.task}</p>}
+                        {a.deliverable && <p className="text-sm text-muted-foreground mt-1"><strong>Deliverable:</strong> {a.deliverable}</p>}
+                        {a.description && <p className="text-sm text-muted-foreground mt-1">{a.description}</p>}
+                      </div>
+                      {subStatus && (
+                        <Badge className={
+                          subStatus === "Approved" ? "bg-success/10 text-success border-success/20" :
+                          subStatus === "Rejected" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                          "bg-accent/10 text-accent border-accent/20"
+                        }>{subStatus}</Badge>
+                      )}
+                    </div>
+
+                    {/* Existing submission feedback */}
+                    {existingSub?.feedback && (
+                      <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
+                        <p className="text-xs font-medium text-accent mb-1">Instructor Feedback</p>
+                        <p className="text-sm">{existingSub.feedback}</p>
+                      </div>
+                    )}
+
+                    {/* Submit form */}
+                    {(!existingSub || canResubmit) && (
+                      <div className="space-y-3 pt-2 border-t border-border">
+                        <Textarea
+                          placeholder="Write your submission..."
+                          value={submissionText}
+                          onChange={(e) => setSubmissionText(e.target.value)}
+                          className="bg-secondary border-border text-sm min-h-[100px]"
+                        />
+                        <div className="space-y-1">
+                          <Label className="text-xs">Attach files (optional)</Label>
+                          <Input id="submission-file" type="file" multiple className="bg-secondary border-border text-sm" />
+                        </div>
+                        <Button size="sm" variant="hero" onClick={() => submitAssignment(a.id)} disabled={submitting}>
+                          <Send className="w-4 h-4 mr-1" />
+                          {submitting ? "Submitting..." : canResubmit ? "Resubmit" : "Submit Assignment"}
+                        </Button>
+                      </div>
+                    )}
+
+                    {existingSub && !canResubmit && subStatus !== "Approved" && (
+                      <p className="text-sm text-accent flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        Your submission is under review
+                      </p>
+                    )}
                   </div>
-                  <Button size="sm" variant="hero" onClick={() => submitAssignment(a.id)} disabled={submitting}>
-                    {submitting ? "Submitting..." : "Submit"}
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
       {/* Sidebar */}
-      <div className="lg:w-80 border-l border-border bg-card/50">
-        <div className="p-4 border-b border-border"><h3 className="font-semibold text-sm">Module Lessons</h3></div>
-        <div className="divide-y divide-border">
-          {moduleLessons.map((l: any) => {
-            const idx = allCourseLessons.findIndex((al: any) => al.id === l.id);
-            const completed = allCompletions.includes(l.id);
-            const accessible = isAdmin || (
-              hasCourseAccess(courseId) &&
-              canAccessLesson(courseId, idx) &&
-              (idx === 0 || allCompletions.includes(allCourseLessons[idx - 1]?.id))
-            );
-
-            return (
-              <div
-                key={l.id}
-                className={`flex items-center gap-3 p-4 text-sm transition-colors ${
-                  l.id === lessonId ? "bg-primary/10 border-l-2 border-l-primary" :
-                  accessible ? "hover:bg-secondary/50 cursor-pointer" : "opacity-50"
-                }`}
-                onClick={() => accessible && navigate(`/lesson/${l.id}`)}
-              >
-                {completed ? (
-                  <CheckCircle className="w-4 h-4 text-success shrink-0" />
-                ) : accessible ? (
-                  l.content_type === "video" ? <PlayCircle className={`w-4 h-4 shrink-0 ${l.id === lessonId ? "text-primary" : "text-muted-foreground"}`} />
-                    : l.content_type === "pdf" ? <FileText className="w-4 h-4 text-accent shrink-0" />
-                    : <CheckCircle className="w-4 h-4 text-muted-foreground shrink-0" />
-                ) : (
-                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-                )}
-                <span className={l.id === lessonId ? "text-foreground font-medium" : "text-muted-foreground"}>{l.title}</span>
-              </div>
-            );
-          })}
+      <div className="lg:w-80 border-l border-border bg-card/30 overflow-auto lg:max-h-screen lg:sticky lg:top-0">
+        <div className="p-4 border-b border-border">
+          <h3 className="font-semibold text-sm mb-2">{course?.title}</h3>
+          <Progress value={progressPercent} className="h-1.5 bg-secondary mb-1" />
+          <p className="text-xs text-muted-foreground">{completedCount}/{totalLessons} lessons · {progressPercent}%</p>
         </div>
+
+        {modules.map((mod: any) => {
+          const modLessons = allCourseLessons.filter((l: any) => l.module_id === mod.id);
+          return (
+            <div key={mod.id}>
+              <div className="px-4 py-3 border-b border-border/50">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{mod.title}</p>
+              </div>
+              <div className="divide-y divide-border/30">
+                {modLessons.map((l: any) => {
+                  const idx = allCourseLessons.findIndex((al: any) => al.id === l.id);
+                  const completed = allCompletions.includes(l.id);
+                  const prevApproved = idx === 0 || (allCompletions.includes(allCourseLessons[idx - 1]?.id) && isLessonAssignmentApproved(allCourseLessons[idx - 1]?.id));
+                  const accessible = isAdmin || (
+                    hasCourseAccess(courseId) &&
+                    canAccessLesson(courseId, idx) &&
+                    prevApproved
+                  );
+
+                  return (
+                    <div
+                      key={l.id}
+                      className={`flex items-center gap-3 px-4 py-3 text-sm transition-all duration-200 ${
+                        l.id === lessonId ? "bg-primary/10 border-l-2 border-l-primary" :
+                        accessible ? "hover:bg-secondary/50 cursor-pointer" : "opacity-40"
+                      }`}
+                      onClick={() => accessible && navigate(`/lesson/${l.id}`)}
+                    >
+                      {completed ? (
+                        <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                      ) : accessible ? (
+                        l.content_type === "video" ? <PlayCircle className={`w-4 h-4 shrink-0 ${l.id === lessonId ? "text-primary" : "text-muted-foreground"}`} />
+                          : l.content_type === "pdf" ? <FileText className="w-4 h-4 text-accent shrink-0" />
+                          : <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={`flex-1 truncate ${l.id === lessonId ? "text-foreground font-medium" : "text-muted-foreground"}`}>{l.title}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
