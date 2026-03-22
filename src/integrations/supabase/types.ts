@@ -41,23 +41,32 @@ export type Database = {
       assignments: {
         Row: {
           created_at: string
+          deliverable: string | null
           description: string | null
           id: string
           lesson_id: string
+          objective: string | null
+          task: string | null
           title: string
         }
         Insert: {
           created_at?: string
+          deliverable?: string | null
           description?: string | null
           id?: string
           lesson_id: string
+          objective?: string | null
+          task?: string | null
           title: string
         }
         Update: {
           created_at?: string
+          deliverable?: string | null
           description?: string | null
           id?: string
           lesson_id?: string
+          objective?: string | null
+          task?: string | null
           title?: string
         }
         Relationships: [
@@ -413,24 +422,33 @@ export type Database = {
       submissions: {
         Row: {
           assignment_id: string
+          feedback: string | null
           file_url: string | null
           id: string
+          status: string
+          submission_files: Json | null
           submitted_at: string
           text_submission: string | null
           user_id: string
         }
         Insert: {
           assignment_id: string
+          feedback?: string | null
           file_url?: string | null
           id?: string
+          status?: string
+          submission_files?: Json | null
           submitted_at?: string
           text_submission?: string | null
           user_id: string
         }
         Update: {
           assignment_id?: string
+          feedback?: string | null
           file_url?: string | null
           id?: string
+          status?: string
+          submission_files?: Json | null
           submitted_at?: string
           text_submission?: string | null
           user_id?: string
