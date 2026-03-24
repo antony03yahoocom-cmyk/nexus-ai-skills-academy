@@ -216,7 +216,7 @@ const AdminCoursesPage = () => {
               <h1 className="text-3xl font-bold">Manage Courses</h1>
               <p className="text-muted-foreground">Create and manage course content, modules, lessons & assignments.</p>
             </div>
-            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 }); }}>
+            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); }}>
               <Plus className="w-4 h-4 mr-1" /> New Course
             </Button>
           </div>
