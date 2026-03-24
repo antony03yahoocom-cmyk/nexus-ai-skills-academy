@@ -35,17 +35,16 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claimsData.claims.sub;
-    const email = claimsData.claims.email;
+    const userId = user.id;
+    const email = user.email;
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
@@ -57,9 +56,8 @@ serve(async (req) => {
     if (action === "initialize") {
       const { amount, callback_url, course_id, plan_type } = await req.json();
 
-      // plan_type: "course" (single course) or "premium" (all courses)
       const isPremium = plan_type === "premium";
-      const finalAmount = amount || (isPremium ? 500000 : 150000); // KES in cents
+      const finalAmount = amount || (isPremium ? 500000 : 150000);
 
       const response = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
@@ -118,13 +116,11 @@ serve(async (req) => {
         const courseId = metadata.course_id;
 
         if (planType === "premium") {
-          // Premium: mark profile as premium, set subscription_status to paid
           await adminClient
             .from("profiles")
             .update({ is_premium: true, subscription_status: "paid" })
             .eq("user_id", userId);
         } else if (courseId) {
-          // Single course purchase
           await adminClient
             .from("course_purchases")
             .upsert({
@@ -136,7 +132,6 @@ serve(async (req) => {
               purchased_at: new Date().toISOString(),
             }, { onConflict: "user_id,course_id" });
 
-          // Also update general subscription_status to paid
           await adminClient
             .from("profiles")
             .update({ subscription_status: "paid" })
