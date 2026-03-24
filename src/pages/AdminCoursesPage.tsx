@@ -245,6 +245,17 @@ const AdminCoursesPage = () => {
                   <Label>Price (KES)</Label>
                   <Input type="number" min="0" value={courseForm.price} onChange={(e) => setCourseForm({ ...courseForm, price: parseInt(e.target.value) || 0 })} className="bg-secondary border-border" />
                 </div>
+                <div className="space-y-2">
+                  <Label>Assignment Approval Mode</Label>
+                  <Select value={courseForm.approval_mode} onValueChange={(v) => setCourseForm({ ...courseForm, approval_mode: v })}>
+                    <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual (Admin reviews)</SelectItem>
+                      <SelectItem value="auto_basic">Auto Basic (Instant approve)</SelectItem>
+                      <SelectItem value="auto_smart">Auto Smart (AI evaluation)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="published" checked={courseForm.is_published} onChange={(e) => setCourseForm({ ...courseForm, is_published: e.target.checked })} />
                   <Label htmlFor="published">Published</Label>
