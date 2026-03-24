@@ -326,6 +326,7 @@ const AdminCoursesPage = () => {
                             {course.is_published ? "Published" : "Draft"}
                           </Badge>
                           <Badge variant="outline" className="text-xs">KES {(course.price || 0).toLocaleString()}</Badge>
+                          <Badge variant="outline" className="text-xs capitalize">{((course as any).approval_mode || "manual").replace("_", " ")}</Badge>
                         </div>
                       </div>
                     </div>
