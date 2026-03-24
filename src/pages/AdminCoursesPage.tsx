@@ -19,7 +19,7 @@ const AdminCoursesPage = () => {
   const [editingCourse, setEditingCourse] = useState<any>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
-  const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false, price: 0 });
+  const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [showModuleForm, setShowModuleForm] = useState<string | null>(null);
   const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video" as string, content_text: "", content_url: "", module_id: "" });
