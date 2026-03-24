@@ -157,6 +157,7 @@ export type Database = {
       }
       courses: {
         Row: {
+          approval_mode: string
           category: string
           created_at: string
           description: string | null
@@ -168,6 +169,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_mode?: string
           category: string
           created_at?: string
           description?: string | null
@@ -179,6 +181,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_mode?: string
           category?: string
           created_at?: string
           description?: string | null

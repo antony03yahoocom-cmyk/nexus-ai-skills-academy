@@ -145,29 +145,59 @@ const LessonViewerPage = () => {
       for (const file of Array.from(fileInput.files)) {
         const path = `${user!.id}/${Date.now()}_${file.name}`;
         const { error } = await supabase.storage.from("assignment-files").upload(path, file);
-        if (error) { toast.error("Upload failed"); setSubmitting(false); return; }
+        if (error) { toast.error("Upload failed: " + error.message); setSubmitting(false); return; }
         const { data } = supabase.storage.from("assignment-files").getPublicUrl(path);
         fileUrls.push(data.publicUrl);
       }
     }
 
-    const { error } = await supabase.from("submissions").insert({
+    const { data: insertedSub, error } = await supabase.from("submissions").insert({
       assignment_id: assignmentId,
       user_id: user!.id,
       text_submission: submissionText || null,
       file_url: fileUrls[0] || null,
       submission_files: fileUrls,
       status: "Pending",
-    } as any);
+    } as any).select().single();
 
-    setSubmitting(false);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Assignment submitted!");
-      setSubmissionText("");
-      queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
-      queryClient.invalidateQueries({ queryKey: ["all-submissions"] });
+    if (error) {
+      toast.error(error.message);
+      setSubmitting(false);
+      return;
     }
+
+    // Call auto-evaluation edge function
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evaluate-assignment`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ submission_id: (insertedSub as any).id }),
+        }
+      );
+      const result = await resp.json();
+      if (result.status === "Approved") {
+        toast.success(result.feedback || "Assignment approved! ✅");
+      } else if (result.status === "Rejected") {
+        toast.error(result.feedback || "Assignment needs revision ❌");
+      } else {
+        toast.success("Assignment submitted! Awaiting review.");
+      }
+    } catch {
+      toast.success("Assignment submitted!");
+    }
+
+    setSubmissionText("");
+    setSubmitting(false);
+    queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
+    queryClient.invalidateQueries({ queryKey: ["all-submissions"] });
+    queryClient.invalidateQueries({ queryKey: ["all-completions"] });
   };
 
   // Determine access - STRICT: previous lesson's assignment must be approved
