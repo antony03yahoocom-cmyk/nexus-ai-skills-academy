@@ -74,7 +74,7 @@ const AdminCoursesPage = () => {
       const { error } = await supabase.from("courses").insert({ ...courseForm, price: courseForm.price || 0 } as any);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Course created!"); setShowCourseForm(false); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 }); },
+    onSuccess: () => { invalidateAll(); toast.success("Course created!"); setShowCourseForm(false); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); },
     onError: (e: any) => toast.error(e.message),
   });
 
