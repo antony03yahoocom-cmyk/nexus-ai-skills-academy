@@ -198,7 +198,7 @@ const AdminCoursesPage = () => {
 
   const startEditCourse = (course: any) => {
     setEditingCourse(course);
-    setCourseForm({ title: course.title, description: course.description || "", category: course.category, is_published: course.is_published, price: course.price || 0 });
+    setCourseForm({ title: course.title, description: course.description || "", category: course.category, is_published: course.is_published, price: course.price || 0, approval_mode: (course as any).approval_mode || "manual" });
   };
 
   const startEditLesson = (lesson: any) => {
