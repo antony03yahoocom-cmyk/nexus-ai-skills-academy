@@ -83,7 +83,7 @@ const AdminCoursesPage = () => {
       const { error } = await supabase.from("courses").update({ ...courseForm, price: courseForm.price || 0 } as any).eq("id", editingCourse.id);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 }); },
+    onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); },
     onError: (e: any) => toast.error(e.message),
   });
 
