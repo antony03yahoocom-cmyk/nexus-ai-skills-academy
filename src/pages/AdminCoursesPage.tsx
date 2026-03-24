@@ -80,7 +80,7 @@ const AdminCoursesPage = () => {
 
   const updateCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").update({ ...courseForm, price: courseForm.price || 0 }).eq("id", editingCourse.id);
+      const { error } = await supabase.from("courses").update({ ...courseForm, price: courseForm.price || 0 } as any).eq("id", editingCourse.id);
       if (error) throw error;
     },
     onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0 }); },
