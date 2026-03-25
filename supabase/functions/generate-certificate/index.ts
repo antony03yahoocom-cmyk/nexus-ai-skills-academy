@@ -101,8 +101,12 @@ Deno.serve(async (req) => {
 
     const certId = crypto.randomUUID();
     const completionDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const studentName = profile.full_name || "Student";
-    const courseName = course.title;
+    const escapeXml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+       .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+    const studentName = escapeXml(profile.full_name || "Student");
+    const courseName = escapeXml(course.title);
 
     // Generate SVG certificate
     const svgCert = `<?xml version="1.0" encoding="UTF-8"?>
