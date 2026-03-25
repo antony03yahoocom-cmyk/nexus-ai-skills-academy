@@ -114,9 +114,9 @@ const AdminCoursesPage = () => {
     const path = `lessons/${Date.now()}_${file.name}`;
     const { error } = await supabase.storage.from("course-content").upload(path, file);
     if (error) { toast.error("Upload failed: " + error.message); setUploadingFile(false); return null; }
-    const { data } = supabase.storage.from("course-content").getPublicUrl(path);
+    const { data } = await supabase.storage.from("course-content").createSignedUrl(path, 3600 * 24);
     setUploadingFile(false);
-    return data.publicUrl;
+    return data?.signedUrl || null;
   };
 
   const createLesson = useMutation({

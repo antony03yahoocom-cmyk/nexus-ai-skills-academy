@@ -45,8 +45,8 @@ const StudentProjectsPage = () => {
         const path = `${user!.id}/${Date.now()}_${file.name}`;
         const { error } = await supabase.storage.from("project-files").upload(path, file);
         if (error) throw error;
-        const { data } = supabase.storage.from("project-files").getPublicUrl(path);
-        fileUrls.push(data.publicUrl);
+        const { data } = await supabase.storage.from("project-files").createSignedUrl(path, 3600);
+        if (data?.signedUrl) fileUrls.push(data.signedUrl);
       }
       const { error } = await supabase.from("projects").insert({
         student_id: user!.id, course_id: form.course_id, title: form.title,

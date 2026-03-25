@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
       id: certId,
       student_id: user.id,
       course_id,
-      certificate_link: urlData.publicUrl,
+      certificate_link: urlData?.signedUrl || filePath,
       status: "Issued",
       issued_date: new Date().toISOString().split("T")[0],
     }).select().single();
