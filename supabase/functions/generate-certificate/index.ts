@@ -101,8 +101,12 @@ Deno.serve(async (req) => {
 
     const certId = crypto.randomUUID();
     const completionDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const studentName = profile.full_name || "Student";
-    const courseName = course.title;
+    const escapeXml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+       .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+    const studentName = escapeXml(profile.full_name || "Student");
+    const courseName = escapeXml(course.title);
 
     // Generate SVG certificate
     const svgCert = `<?xml version="1.0" encoding="UTF-8"?>
@@ -143,13 +147,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Certificate generation failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: urlData } = supabase.storage.from("certificates").getPublicUrl(filePath);
+    const { data: urlData } = await supabase.storage.from("certificates").createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
     const { data: cert, error: insertError } = await supabase.from("certificates").insert({
       id: certId,
       student_id: user.id,
       course_id,
-      certificate_link: urlData.publicUrl,
+      certificate_link: urlData?.signedUrl || filePath,
       status: "Issued",
       issued_date: new Date().toISOString().split("T")[0],
     }).select().single();

@@ -146,8 +146,8 @@ const LessonViewerPage = () => {
         const path = `${user!.id}/${Date.now()}_${file.name}`;
         const { error } = await supabase.storage.from("assignment-files").upload(path, file);
         if (error) { toast.error("Upload failed: " + error.message); setSubmitting(false); return; }
-        const { data } = supabase.storage.from("assignment-files").getPublicUrl(path);
-        fileUrls.push(data.publicUrl);
+        const { data } = await supabase.storage.from("assignment-files").createSignedUrl(path, 3600);
+        if (data?.signedUrl) fileUrls.push(data.signedUrl);
       }
     }
 
