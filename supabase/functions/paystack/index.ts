@@ -7,6 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PREMIUM_PRICE_KES = 500000; // 5000 KES in kobo/cents
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -54,10 +56,39 @@ serve(async (req) => {
     );
 
     if (action === "initialize") {
-      const { amount, callback_url, course_id, plan_type } = await req.json();
+      const { callback_url, course_id, plan_type } = await req.json();
 
       const isPremium = plan_type === "premium";
-      const finalAmount = amount || (isPremium ? 500000 : 150000);
+      let finalAmount: number;
+
+      if (isPremium) {
+        finalAmount = PREMIUM_PRICE_KES;
+      } else if (course_id) {
+        // Look up course price server-side
+        const { data: course, error: courseError } = await adminClient
+          .from("courses")
+          .select("price")
+          .eq("id", course_id)
+          .single();
+        if (courseError || !course) {
+          return new Response(JSON.stringify({ error: "Course not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        finalAmount = course.price * 100; // KES to smallest unit
+        if (finalAmount <= 0) {
+          return new Response(JSON.stringify({ error: "Course has no price set" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        return new Response(JSON.stringify({ error: "course_id or premium plan required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const response = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
@@ -75,6 +106,7 @@ serve(async (req) => {
             user_id: userId,
             course_id: course_id || null,
             plan_type: isPremium ? "premium" : "course",
+            expected_amount: finalAmount,
             custom_fields: [
               {
                 display_name: "Plan Type",
@@ -89,7 +121,10 @@ serve(async (req) => {
       const data = await response.json();
       if (!response.ok) {
         console.error("Paystack init error:", JSON.stringify(data));
-        throw new Error(`Paystack initialization failed [${response.status}]: ${JSON.stringify(data)}`);
+        return new Response(JSON.stringify({ error: "Payment initialization failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       return new Response(JSON.stringify(data), {
@@ -100,20 +135,34 @@ serve(async (req) => {
     if (action === "verify") {
       const { reference } = await req.json();
 
-      const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
         headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
       });
 
       const data = await response.json();
       if (!response.ok) {
         console.error("Paystack verify error:", JSON.stringify(data));
-        throw new Error(`Paystack verification failed [${response.status}]: ${JSON.stringify(data)}`);
+        return new Response(JSON.stringify({ error: "Payment verification failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       if (data.data?.status === "success") {
         const metadata = data.data?.metadata || {};
         const planType = metadata.plan_type;
         const courseId = metadata.course_id;
+        const expectedAmount = metadata.expected_amount;
+        const paidAmount = data.data.amount;
+
+        // Verify the paid amount matches expected
+        if (expectedAmount && paidAmount < expectedAmount) {
+          console.error(`Amount mismatch: paid ${paidAmount}, expected ${expectedAmount}`);
+          return new Response(JSON.stringify({ error: "Payment amount mismatch" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
         if (planType === "premium") {
           await adminClient
@@ -126,7 +175,7 @@ serve(async (req) => {
             .upsert({
               user_id: userId,
               course_id: courseId,
-              amount: data.data.amount,
+              amount: paidAmount,
               reference: reference,
               status: "paid",
               purchased_at: new Date().toISOString(),
@@ -154,8 +203,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Paystack error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ error: "An unexpected error occurred" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

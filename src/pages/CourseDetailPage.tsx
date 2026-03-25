@@ -101,7 +101,6 @@ const CourseDetailPage = () => {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
-            amount: (course.price || 0) * 100, // KES to cents
             course_id: courseId,
             plan_type: "course",
             callback_url: `${window.location.origin}/courses/${courseId}?verify=true`,

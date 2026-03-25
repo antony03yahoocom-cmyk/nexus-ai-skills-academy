@@ -33,10 +33,40 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "course_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Fetch profile
+    // Verify the user has paid for this course or is premium
     const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
     if (!profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!profile.is_premium) {
+      const { data: purchase } = await supabase
+        .from("course_purchases")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("course_id", course_id)
+        .eq("status", "paid")
+        .maybeSingle();
+
+      if (!purchase) {
+        return new Response(JSON.stringify({ error: "You must purchase this course before receiving a certificate" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Verify enrollment exists
+    const { data: enrollment } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("course_id", course_id)
+      .maybeSingle();
+
+    if (!enrollment) {
+      return new Response(JSON.stringify({ error: "You are not enrolled in this course" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Fetch course
@@ -110,12 +140,11 @@ Deno.serve(async (req) => {
 
     const { error: uploadError } = await supabase.storage.from("certificates").upload(filePath, svgBlob, { contentType: "image/svg+xml" });
     if (uploadError) {
-      return new Response(JSON.stringify({ error: "Upload failed: " + uploadError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Certificate generation failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: urlData } = supabase.storage.from("certificates").getPublicUrl(filePath);
 
-    // Insert certificate record using service role
     const { data: cert, error: insertError } = await supabase.from("certificates").insert({
       id: certId,
       student_id: user.id,
@@ -126,11 +155,11 @@ Deno.serve(async (req) => {
     }).select().single();
 
     if (insertError) {
-      return new Response(JSON.stringify({ error: "DB insert failed: " + insertError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Certificate record creation failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ certificate: cert }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "An unexpected error occurred" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
