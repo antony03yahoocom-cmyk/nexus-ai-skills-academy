@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Certificate generation failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: urlData } = supabase.storage.from("certificates").getPublicUrl(filePath);
+    const { data: urlData } = await supabase.storage.from("certificates").createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
     const { data: cert, error: insertError } = await supabase.from("certificates").insert({
       id: certId,
