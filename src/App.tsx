@@ -25,6 +25,9 @@ import AdminProjectsPage from "./pages/AdminProjectsPage.tsx";
 import AdminCertificatesPage from "./pages/AdminCertificatesPage.tsx";
 import SubscribePage from "./pages/SubscribePage.tsx";
 import PortfolioPage from "./pages/PortfolioPage.tsx";
+import DiscussionGroupsPage from "./pages/DiscussionGroupsPage.tsx";
+import GroupChatPage from "./pages/GroupChatPage.tsx";
+import AdminGroupsPage from "./pages/AdminGroupsPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +50,8 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
             <Route path="/dashboard/projects" element={<ProtectedRoute><StudentProjectsPage /></ProtectedRoute>} />
             <Route path="/dashboard/certificates" element={<ProtectedRoute><StudentCertificatesPage /></ProtectedRoute>} />
+            <Route path="/discussions" element={<ProtectedRoute><DiscussionGroupsPage /></ProtectedRoute>} />
+            <Route path="/discussions/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
             <Route path="/dashboard/*" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/courses" element={<AdminRoute><AdminCoursesPage /></AdminRoute>} />
@@ -56,6 +61,7 @@ const App = () => (
             <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
             <Route path="/admin/projects" element={<AdminRoute><AdminProjectsPage /></AdminRoute>} />
             <Route path="/admin/certificates" element={<AdminRoute><AdminCertificatesPage /></AdminRoute>} />
+            <Route path="/admin/groups" element={<AdminRoute><AdminGroupsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

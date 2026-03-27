@@ -194,6 +194,33 @@ export type Database = {
         }
         Relationships: []
       }
+      discussion_groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["group_status"]
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["group_status"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["group_status"]
+        }
+        Relationships: []
+      }
       enrollments: {
         Row: {
           course_id: string
@@ -222,6 +249,70 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "discussion_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_messages: {
+        Row: {
+          content: string
+          created_at: string
+          group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "discussion_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -504,6 +595,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       certificate_status: "Pending" | "Issued"
+      group_status: "active" | "suspended"
       project_status: "Draft" | "Submitted" | "Approved" | "Rejected"
     }
     CompositeTypes: {
@@ -634,6 +726,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       certificate_status: ["Pending", "Issued"],
+      group_status: ["active", "suspended"],
       project_status: ["Draft", "Submitted", "Approved", "Rejected"],
     },
   },

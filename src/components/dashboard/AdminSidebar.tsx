@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Cpu, Megaphone, FolderOpen, Award, FileText } from "lucide-react";
+import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Cpu, Megaphone, FolderOpen, Award, FileText, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const adminLinks = [
@@ -10,6 +10,7 @@ const adminLinks = [
   { to: "/admin/projects", icon: FolderOpen, label: "Projects" },
   { to: "/admin/certificates", icon: Award, label: "Certificates" },
   { to: "/admin/announcements", icon: Megaphone, label: "Announcements" },
+  { to: "/admin/groups", icon: MessageCircle, label: "Groups" },
   { to: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 

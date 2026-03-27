@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, FolderOpen, Award, CreditCard, LogOut, Cpu, Menu, X } from "lucide-react";
+import { LayoutDashboard, BookOpen, FolderOpen, Award, CreditCard, LogOut, Cpu, Menu, X, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 
@@ -8,6 +8,7 @@ const navLinks = [
   { to: "/courses", icon: BookOpen, label: "Courses" },
   { to: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
   { to: "/dashboard/certificates", icon: Award, label: "Certificates" },
+  { to: "/discussions", icon: MessageCircle, label: "Discussions" },
   { to: "/subscribe", icon: CreditCard, label: "Premium" },
 ];
 
