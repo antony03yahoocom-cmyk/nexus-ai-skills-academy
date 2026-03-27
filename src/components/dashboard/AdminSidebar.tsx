@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Cpu, Megaphone, FolderOpen, Award, FileText } from "lucide-react";
+import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Cpu, Megaphone, FolderOpen, Award, FileText, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const adminLinks = [
