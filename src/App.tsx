@@ -25,6 +25,9 @@ import AdminProjectsPage from "./pages/AdminProjectsPage.tsx";
 import AdminCertificatesPage from "./pages/AdminCertificatesPage.tsx";
 import SubscribePage from "./pages/SubscribePage.tsx";
 import PortfolioPage from "./pages/PortfolioPage.tsx";
+import DiscussionGroupsPage from "./pages/DiscussionGroupsPage.tsx";
+import GroupChatPage from "./pages/GroupChatPage.tsx";
+import AdminGroupsPage from "./pages/AdminGroupsPage.tsx";
 
 const queryClient = new QueryClient();
 
