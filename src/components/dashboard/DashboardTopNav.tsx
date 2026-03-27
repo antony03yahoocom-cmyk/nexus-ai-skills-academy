@@ -8,6 +8,7 @@ const navLinks = [
   { to: "/courses", icon: BookOpen, label: "Courses" },
   { to: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
   { to: "/dashboard/certificates", icon: Award, label: "Certificates" },
+  { to: "/discussions", icon: MessageCircle, label: "Discussions" },
   { to: "/subscribe", icon: CreditCard, label: "Premium" },
 ];
 

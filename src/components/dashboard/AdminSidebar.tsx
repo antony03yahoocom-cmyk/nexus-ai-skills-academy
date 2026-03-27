@@ -10,6 +10,7 @@ const adminLinks = [
   { to: "/admin/projects", icon: FolderOpen, label: "Projects" },
   { to: "/admin/certificates", icon: Award, label: "Certificates" },
   { to: "/admin/announcements", icon: Megaphone, label: "Announcements" },
+  { to: "/admin/groups", icon: MessageCircle, label: "Groups" },
   { to: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 
