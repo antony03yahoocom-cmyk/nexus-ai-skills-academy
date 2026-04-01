@@ -352,6 +352,7 @@ export type Database = {
           content_type: string
           created_at: string
           file_url: string | null
+          file_url_backup: string | null
           id: string
           module_id: string
           sort_order: number
@@ -362,6 +363,7 @@ export type Database = {
           content_type: string
           created_at?: string
           file_url?: string | null
+          file_url_backup?: string | null
           id?: string
           module_id: string
           sort_order?: number
@@ -372,6 +374,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           file_url?: string | null
+          file_url_backup?: string | null
           id?: string
           module_id?: string
           sort_order?: number
@@ -572,6 +575,33 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      video_lessons: {
+        Row: {
+          bucket_name: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          video_path: string
+        }
+        Insert: {
+          bucket_name?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          video_path: string
+        }
+        Update: {
+          bucket_name?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          video_path?: string
         }
         Relationships: []
       }

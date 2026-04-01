@@ -151,20 +151,34 @@ const LessonViewerPage = () => {
       }
     }
 
-    const { data: insertedSub, error } = await supabase.from("submissions").insert({
-      assignment_id: assignmentId,
-      user_id: user!.id,
-      text_submission: submissionText || null,
-      file_url: fileUrls[0] || null,
-      submission_files: fileUrls,
-      status: "Pending",
-    } as any).select().single();
+    // Check if this is a resubmission (existing rejected submission)
+    const existingSub = mySubmissions.find((s: any) => s.assignment_id === assignmentId && s.status === "Rejected");
 
-    if (error) {
-      toast.error(error.message);
-      setSubmitting(false);
-      return;
+    let insertedSub: any;
+    if (existingSub) {
+      // Update existing submission instead of inserting a new one
+      const { data, error } = await supabase.from("submissions").update({
+        text_submission: submissionText || null,
+        file_url: fileUrls[0] || existingSub.file_url || null,
+        submission_files: fileUrls.length > 0 ? fileUrls : existingSub.submission_files,
+        status: "Pending",
+        feedback: null,
+      }).eq("id", existingSub.id).select().single();
+      if (error) { toast.error(error.message); setSubmitting(false); return; }
+      insertedSub = data;
+    } else {
+      const { data, error } = await supabase.from("submissions").insert({
+        assignment_id: assignmentId,
+        user_id: user!.id,
+        text_submission: submissionText || null,
+        file_url: fileUrls[0] || null,
+        submission_files: fileUrls,
+        status: "Pending",
+      } as any).select().single();
+      if (error) { toast.error(error.message); setSubmitting(false); return; }
+      insertedSub = data;
     }
+
 
     // Call auto-evaluation edge function
     try {
@@ -291,7 +305,13 @@ const LessonViewerPage = () => {
                   title={lesson.title}
                 />
               ) : (
-                <video controls className="w-full h-full" src={lesson.file_url} />
+                <video
+                  controls
+                  controlsList="nodownload"
+                  className="w-full h-full"
+                  src={lesson.file_url}
+                  onContextMenu={(e) => e.preventDefault()}
+                />
               )}
             </div>
           ) : lesson.content_type === "pdf" && lesson.file_url ? (
@@ -321,7 +341,15 @@ const LessonViewerPage = () => {
         <div className="p-6 max-w-3xl mx-auto">
           {lesson.content_text && (
             <div className="prose prose-invert max-w-none mb-8">
-              <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{lesson.content_text}</div>
+            <div
+              className="text-muted-foreground leading-relaxed whitespace-pre-wrap [&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80"
+              dangerouslySetInnerHTML={{
+                __html: lesson.content_text
+                  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                  .replace(/\n/g, '<br/>')
+                  .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+              }}
+            />
             </div>
           )}
 

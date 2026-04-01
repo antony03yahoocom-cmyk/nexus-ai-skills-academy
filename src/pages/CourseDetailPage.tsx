@@ -70,6 +70,16 @@ const CourseDetailPage = () => {
       if (!user) { navigate("/login"); return; }
       const { error } = await supabase.from("enrollments").insert({ user_id: user.id, course_id: courseId! });
       if (error) throw error;
+      // For free courses, auto-create a "paid" purchase record so hasCourseAccess works
+      if (course?.price === 0) {
+        await supabase.from("course_purchases").insert({
+          user_id: user.id,
+          course_id: courseId!,
+          amount: 0,
+          status: "paid",
+          reference: "free-course",
+        });
+      }
       // If on trial and no trial course selected yet, select this one
       if (trialActive && !profile?.trial_course_id) {
         await selectTrialCourse(courseId!);
@@ -77,12 +87,14 @@ const CourseDetailPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["enrollment"] });
+      if (course?.price === 0) refreshProfile();
       toast.success("Enrolled successfully!");
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const courseAccess = courseId ? hasCourseAccess(courseId) : false;
+  const isFree = course?.price === 0;
 
   const handleBuyCourse = async () => {
     if (!user || !session || !course) {
@@ -197,7 +209,7 @@ const CourseDetailPage = () => {
             )}
 
             {/* No access banner */}
-            {user && !courseAccess && !trialActive && (
+            {user && !courseAccess && !trialActive && !isFree && (
               <div className="glass-card p-4 mb-6 border-destructive/30 bg-destructive/5 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-destructive" />
@@ -227,12 +239,12 @@ const CourseDetailPage = () => {
                       Continue Learning
                     </Link>
                   </Button>
-                ) : (
+                ) : !isFree ? (
                   <Button variant="hero" size="lg" onClick={handleBuyCourse} disabled={payLoading}>
                     <CreditCard className="w-4 h-4 mr-2" />
                     {payLoading ? "Processing..." : `Buy for ${priceFormatted}`}
                   </Button>
-                )
+                ) : null
               ) : (
                 <Button variant="hero" size="lg" onClick={() => user ? enroll.mutate() : navigate("/login")}>
                   {user ? "Enroll Now" : "Sign In to Enroll"}
