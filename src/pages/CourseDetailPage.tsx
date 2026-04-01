@@ -209,7 +209,7 @@ const CourseDetailPage = () => {
             )}
 
             {/* No access banner */}
-            {user && !courseAccess && !trialActive && (
+            {user && !courseAccess && !trialActive && !isFree && (
               <div className="glass-card p-4 mb-6 border-destructive/30 bg-destructive/5 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-destructive" />
