@@ -327,7 +327,15 @@ const LessonViewerPage = () => {
         <div className="p-6 max-w-3xl mx-auto">
           {lesson.content_text && (
             <div className="prose prose-invert max-w-none mb-8">
-              <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{lesson.content_text}</div>
+            <div
+              className="text-muted-foreground leading-relaxed whitespace-pre-wrap [&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80"
+              dangerouslySetInnerHTML={{
+                __html: lesson.content_text
+                  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                  .replace(/\n/g, '<br/>')
+                  .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+              }}
+            />
             </div>
           )}
 
