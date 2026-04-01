@@ -291,7 +291,13 @@ const LessonViewerPage = () => {
                   title={lesson.title}
                 />
               ) : (
-                <video controls className="w-full h-full" src={lesson.file_url} />
+                <video
+                  controls
+                  controlsList="nodownload"
+                  className="w-full h-full"
+                  src={lesson.file_url}
+                  onContextMenu={(e) => e.preventDefault()}
+                />
               )}
             </div>
           ) : lesson.content_type === "pdf" && lesson.file_url ? (
