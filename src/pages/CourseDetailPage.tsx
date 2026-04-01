@@ -70,6 +70,16 @@ const CourseDetailPage = () => {
       if (!user) { navigate("/login"); return; }
       const { error } = await supabase.from("enrollments").insert({ user_id: user.id, course_id: courseId! });
       if (error) throw error;
+      // For free courses, auto-create a "paid" purchase record so hasCourseAccess works
+      if (course?.price === 0) {
+        await supabase.from("course_purchases").insert({
+          user_id: user.id,
+          course_id: courseId!,
+          amount: 0,
+          status: "paid",
+          reference: "free-course",
+        });
+      }
       // If on trial and no trial course selected yet, select this one
       if (trialActive && !profile?.trial_course_id) {
         await selectTrialCourse(courseId!);
