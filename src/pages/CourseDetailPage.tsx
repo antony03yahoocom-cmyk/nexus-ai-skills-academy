@@ -87,6 +87,7 @@ const CourseDetailPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["enrollment"] });
+      if (course?.price === 0) refreshProfile();
       toast.success("Enrolled successfully!");
     },
     onError: (e: any) => toast.error(e.message),
