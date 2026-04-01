@@ -151,14 +151,33 @@ const LessonViewerPage = () => {
       }
     }
 
-    const { data: insertedSub, error } = await supabase.from("submissions").insert({
-      assignment_id: assignmentId,
-      user_id: user!.id,
-      text_submission: submissionText || null,
-      file_url: fileUrls[0] || null,
-      submission_files: fileUrls,
-      status: "Pending",
-    } as any).select().single();
+    // Check if this is a resubmission (existing rejected submission)
+    const existingSub = mySubmissions.find((s: any) => s.assignment_id === assignmentId && s.status === "Rejected");
+
+    let insertedSub: any;
+    if (existingSub) {
+      // Update existing submission instead of inserting a new one
+      const { data, error } = await supabase.from("submissions").update({
+        text_submission: submissionText || null,
+        file_url: fileUrls[0] || existingSub.file_url || null,
+        submission_files: fileUrls.length > 0 ? fileUrls : existingSub.submission_files,
+        status: "Pending",
+        feedback: null,
+      }).eq("id", existingSub.id).select().single();
+      if (error) { toast.error(error.message); setSubmitting(false); return; }
+      insertedSub = data;
+    } else {
+      const { data, error } = await supabase.from("submissions").insert({
+        assignment_id: assignmentId,
+        user_id: user!.id,
+        text_submission: submissionText || null,
+        file_url: fileUrls[0] || null,
+        submission_files: fileUrls,
+        status: "Pending",
+      } as any).select().single();
+      if (error) { toast.error(error.message); setSubmitting(false); return; }
+      insertedSub = data;
+    }
 
     if (error) {
       toast.error(error.message);

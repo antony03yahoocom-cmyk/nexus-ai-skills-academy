@@ -239,12 +239,12 @@ const CourseDetailPage = () => {
                       Continue Learning
                     </Link>
                   </Button>
-                ) : (
+                ) : !isFree ? (
                   <Button variant="hero" size="lg" onClick={handleBuyCourse} disabled={payLoading}>
                     <CreditCard className="w-4 h-4 mr-2" />
                     {payLoading ? "Processing..." : `Buy for ${priceFormatted}`}
                   </Button>
-                )
+                ) : null
               ) : (
                 <Button variant="hero" size="lg" onClick={() => user ? enroll.mutate() : navigate("/login")}>
                   {user ? "Enroll Now" : "Sign In to Enroll"}
