@@ -83,6 +83,7 @@ const CourseDetailPage = () => {
   });
 
   const courseAccess = courseId ? hasCourseAccess(courseId) : false;
+  const isFree = course?.price === 0;
 
   const handleBuyCourse = async () => {
     if (!user || !session || !course) {
