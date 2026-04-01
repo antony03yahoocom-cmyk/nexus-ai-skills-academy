@@ -154,6 +154,15 @@ serve(async (req) => {
         const courseId = metadata.course_id;
         const expectedAmount = metadata.expected_amount;
         const paidAmount = data.data.amount;
+        const metaUserId = metadata.user_id;
+
+        // SECURITY: Ensure the payment reference belongs to the authenticated user
+        if (metaUserId && metaUserId !== userId) {
+          return new Response(JSON.stringify({ error: "Payment reference does not belong to this account" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
         // Verify the paid amount matches expected
         if (expectedAmount && paidAmount < expectedAmount) {
