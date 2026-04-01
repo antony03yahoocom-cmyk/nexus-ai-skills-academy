@@ -179,11 +179,6 @@ const LessonViewerPage = () => {
       insertedSub = data;
     }
 
-    if (error) {
-      toast.error(error.message);
-      setSubmitting(false);
-      return;
-    }
 
     // Call auto-evaluation edge function
     try {
