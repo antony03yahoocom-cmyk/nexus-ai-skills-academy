@@ -80,6 +80,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .eq("user_id", userId)
       .eq("status", "paid");
     setPurchases(purchaseData ?? []);
+
+    // Fetch enrolled free courses (price = 0)
+    const { data: enrolledCourses } = await supabase
+      .from("enrollments")
+      .select("course_id, courses!inner(price)")
+      .eq("user_id", userId);
+    const freeIds = (enrolledCourses ?? [])
+      .filter((e: any) => e.courses?.price === 0)
+      .map((e: any) => e.course_id);
+    setFreeCourseIds(freeIds);
   };
 
   const refreshProfile = async () => {
