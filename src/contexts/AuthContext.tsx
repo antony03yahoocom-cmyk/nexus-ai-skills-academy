@@ -148,6 +148,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user || !profile) return;
     // Only allow selecting if no trial course yet
     if (profile.trial_course_id && profile.trial_course_id !== courseId) return;
+    // Don't set trial for free courses
+    const { data: courseData } = await supabase.from("courses").select("price").eq("id", courseId).single();
+    if (courseData?.price === 0) return;
     const { error } = await supabase
       .from("profiles")
       .update({ trial_course_id: courseId })
