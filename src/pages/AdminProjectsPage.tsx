@@ -18,9 +18,8 @@ const AdminProjectsPage = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("projects")
-        .select("*, courses(title), profiles!projects_student_id_fkey(full_name)")
+        .select("*, courses(title)")
         .order("created_at", { ascending: false });
-      // profiles join may not work with fkey name, fallback
       return data ?? [];
     },
   });
