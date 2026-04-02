@@ -298,7 +298,7 @@ const CourseDetailPage = () => {
                               <CheckCircle className="w-5 h-5 text-muted-foreground shrink-0" />
                             )}
                             <span className="flex-1 text-sm">{lesson.title}</span>
-                            {trialActive && globalIdx >= 7 && profile?.trial_course_id === courseId && !isCompleted && (
+                            {trialActive && globalIdx >= 7 && profile?.trial_course_id === courseId && !isCompleted && !isFree && (
                               <span className="text-xs text-muted-foreground">Trial limit</span>
                             )}
                             {isLocked && <Lock className="w-4 h-4 text-muted-foreground" />}
