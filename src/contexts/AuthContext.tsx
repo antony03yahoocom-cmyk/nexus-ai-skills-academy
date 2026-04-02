@@ -126,7 +126,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (isAdmin) return true;
     if (profile.is_premium) return true;
     if (purchases.some((p) => p.course_id === courseId)) return true;
-    // Trial: only the selected trial course
+    // Free courses: check if enrolled (purchase record with "free-course" reference)
+    if (purchases.some((p) => p.course_id === courseId)) return true;
+    // Trial: only the selected trial course (not for free courses — those are handled by purchases)
     if (trialActive && profile.trial_course_id === courseId) return true;
     return false;
   }, [profile, isAdmin, purchases, trialActive]);
