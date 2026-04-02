@@ -156,6 +156,7 @@ const CourseDetailPage = () => {
           if (result.success) {
             toast.success("Payment successful! You now have full access.");
             await refreshProfile();
+            queryClient.invalidateQueries({ queryKey: ["enrollment"] });
             // Clean URL
             window.history.replaceState({}, "", `/courses/${courseId}`);
           } else {
