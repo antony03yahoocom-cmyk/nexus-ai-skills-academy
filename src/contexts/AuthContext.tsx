@@ -17,6 +17,10 @@ interface CoursePurchase {
   status: string;
 }
 
+interface EnrolledFreeCourse {
+  course_id: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
