@@ -17,6 +17,10 @@ interface CoursePurchase {
   status: string;
 }
 
+interface EnrolledFreeCourse {
+  course_id: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -43,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState<CoursePurchase[]>([]);
+  const [freeCourseIds, setFreeCourseIds] = useState<string[]>([]);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -75,6 +80,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .eq("user_id", userId)
       .eq("status", "paid");
     setPurchases(purchaseData ?? []);
+
+    // Fetch enrolled free courses (price = 0)
+    const { data: enrolledCourses } = await supabase
+      .from("enrollments")
+      .select("course_id, courses!inner(price)")
+      .eq("user_id", userId);
+    const freeIds = (enrolledCourses ?? [])
+      .filter((e: any) => e.courses?.price === 0)
+      .map((e: any) => e.course_id);
+    setFreeCourseIds(freeIds);
   };
 
   const refreshProfile = async () => {
@@ -126,12 +141,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (isAdmin) return true;
     if (profile.is_premium) return true;
     if (purchases.some((p) => p.course_id === courseId)) return true;
-    // Free courses: check if enrolled (purchase record with "free-course" reference)
-    if (purchases.some((p) => p.course_id === courseId)) return true;
-    // Trial: only the selected trial course (not for free courses — those are handled by purchases)
+    // Free courses (price=0) — enrolled user has access
+    if (freeCourseIds.includes(courseId)) return true;
+    // Trial: only the selected trial course (not for free courses)
     if (trialActive && profile.trial_course_id === courseId) return true;
     return false;
-  }, [profile, isAdmin, purchases, trialActive]);
+  }, [profile, isAdmin, purchases, freeCourseIds, trialActive]);
 
   // Check if a specific lesson (by index in course) is accessible
   const canAccessLesson = useCallback((courseId: string, lessonIndex: number): boolean => {
@@ -139,10 +154,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (isAdmin) return true;
     if (profile.is_premium) return true;
     if (purchases.some((p) => p.course_id === courseId)) return true;
+    // Free courses — all lessons accessible
+    if (freeCourseIds.includes(courseId)) return true;
     // Trial: first 7 lessons only, and only for the selected trial course
     if (trialActive && profile.trial_course_id === courseId && lessonIndex < 7) return true;
     return false;
-  }, [profile, isAdmin, purchases, trialActive]);
+  }, [profile, isAdmin, purchases, freeCourseIds, trialActive]);
 
   const selectTrialCourse = async (courseId: string) => {
     if (!user || !profile) return;
@@ -167,6 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setIsAdmin(false);
     setPurchases([]);
+    setFreeCourseIds([]);
   };
 
   return (
