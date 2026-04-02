@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState<CoursePurchase[]>([]);
+  const [freeCourseIds, setFreeCourseIds] = useState<string[]>([]);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
