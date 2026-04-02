@@ -80,14 +80,14 @@ const CourseDetailPage = () => {
           reference: "free-course",
         });
       }
-      // If on trial and no trial course selected yet, select this one
-      if (trialActive && !profile?.trial_course_id) {
+      // If on trial and no trial course selected yet, and course is NOT free, select this one
+      if (trialActive && !profile?.trial_course_id && course?.price !== 0) {
         await selectTrialCourse(courseId!);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["enrollment"] });
-      if (course?.price === 0) refreshProfile();
+      refreshProfile();
       toast.success("Enrolled successfully!");
     },
     onError: (e: any) => toast.error(e.message),
@@ -156,6 +156,7 @@ const CourseDetailPage = () => {
           if (result.success) {
             toast.success("Payment successful! You now have full access.");
             await refreshProfile();
+            queryClient.invalidateQueries({ queryKey: ["enrollment"] });
             // Clean URL
             window.history.replaceState({}, "", `/courses/${courseId}`);
           } else {
@@ -201,8 +202,8 @@ const CourseDetailPage = () => {
               <span className="font-bold text-foreground text-lg">{priceFormatted}</span>
             </div>
 
-            {/* Trial banner */}
-            {user && trialActive && profile?.trial_course_id === courseId && !courseAccess && (
+            {/* Trial banner - only for paid courses */}
+            {user && trialActive && profile?.trial_course_id === courseId && !courseAccess && !isFree && (
               <div className="glass-card p-3 mb-4 border-accent/30 bg-accent/5 text-sm">
                 🕐 Trial: {trialDaysLeft} days left · First 7 lessons accessible
               </div>
@@ -224,8 +225,8 @@ const CourseDetailPage = () => {
               </div>
             )}
 
-            {/* Trial course but it's accessible */}
-            {user && trialActive && !profile?.trial_course_id && !courseAccess && (
+            {/* Trial course selection - only for paid courses */}
+            {user && trialActive && !profile?.trial_course_id && !courseAccess && !isFree && (
               <div className="glass-card p-4 mb-6 border-primary/30 bg-primary/5 text-sm">
                 You can select <strong>one course</strong> for your 7-day free trial. Enroll below to start!
               </div>
@@ -297,7 +298,7 @@ const CourseDetailPage = () => {
                               <CheckCircle className="w-5 h-5 text-muted-foreground shrink-0" />
                             )}
                             <span className="flex-1 text-sm">{lesson.title}</span>
-                            {trialActive && globalIdx >= 7 && profile?.trial_course_id === courseId && !isCompleted && (
+                            {trialActive && globalIdx >= 7 && profile?.trial_course_id === courseId && !isCompleted && !isFree && (
                               <span className="text-xs text-muted-foreground">Trial limit</span>
                             )}
                             {isLocked && <Lock className="w-4 h-4 text-muted-foreground" />}

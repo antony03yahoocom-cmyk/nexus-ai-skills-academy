@@ -74,6 +74,13 @@ export type Database = {
             foreignKeyName: "assignments_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
+            referencedRelation: "course_modules_with_lessons"
+            referencedColumns: ["lesson_id"]
+          },
+          {
+            foreignKeyName: "assignments_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
             referencedRelation: "lessons"
             referencedColumns: ["id"]
           },
@@ -341,10 +348,41 @@ export type Database = {
             foreignKeyName: "lesson_completions_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
+            referencedRelation: "course_modules_with_lessons"
+            referencedColumns: ["lesson_id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
             referencedRelation: "lessons"
             referencedColumns: ["id"]
           },
         ]
+      }
+      lesson_progress: {
+        Row: {
+          completed: boolean | null
+          created_at: string | null
+          id: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       lessons: {
         Row: {
@@ -355,6 +393,7 @@ export type Database = {
           file_url_backup: string | null
           id: string
           module_id: string
+          order_index: number | null
           sort_order: number
           title: string
         }
@@ -366,6 +405,7 @@ export type Database = {
           file_url_backup?: string | null
           id?: string
           module_id: string
+          order_index?: number | null
           sort_order?: number
           title: string
         }
@@ -377,10 +417,18 @@ export type Database = {
           file_url_backup?: string | null
           id?: string
           module_id?: string
+          order_index?: number | null
           sort_order?: number
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "course_modules_with_lessons"
+            referencedColumns: ["module_id"]
+          },
           {
             foreignKeyName: "lessons_module_id_fkey"
             columns: ["module_id"]
@@ -395,6 +443,7 @@ export type Database = {
           course_id: string
           created_at: string
           id: string
+          order_index: number | null
           sort_order: number
           title: string
         }
@@ -402,6 +451,7 @@ export type Database = {
           course_id: string
           created_at?: string
           id?: string
+          order_index?: number | null
           sort_order?: number
           title: string
         }
@@ -409,6 +459,7 @@ export type Database = {
           course_id?: string
           created_at?: string
           id?: string
+          order_index?: number | null
           sort_order?: number
           title?: string
         }
@@ -607,9 +658,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      course_modules_with_lessons: {
+        Row: {
+          lesson_id: string | null
+          lesson_title: string | null
+          module_id: string | null
+          module_title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      can_access_course: {
+        Args: { p_course_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      can_access_lesson: {
+        Args: { p_lesson_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      get_next_lesson: {
+        Args: { p_current_lesson: string; p_user_id: string }
+        Returns: {
+          next_lesson_id: string
+        }[]
+      }
       has_course_access: {
         Args: { _course_id: string; _user_id: string }
         Returns: boolean

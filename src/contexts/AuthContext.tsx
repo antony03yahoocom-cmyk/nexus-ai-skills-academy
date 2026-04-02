@@ -126,7 +126,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (isAdmin) return true;
     if (profile.is_premium) return true;
     if (purchases.some((p) => p.course_id === courseId)) return true;
-    // Trial: only the selected trial course
+    // Free courses: check if enrolled (purchase record with "free-course" reference)
+    if (purchases.some((p) => p.course_id === courseId)) return true;
+    // Trial: only the selected trial course (not for free courses — those are handled by purchases)
     if (trialActive && profile.trial_course_id === courseId) return true;
     return false;
   }, [profile, isAdmin, purchases, trialActive]);
@@ -146,6 +148,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user || !profile) return;
     // Only allow selecting if no trial course yet
     if (profile.trial_course_id && profile.trial_course_id !== courseId) return;
+    // Don't set trial for free courses
+    const { data: courseData } = await supabase.from("courses").select("price").eq("id", courseId).single();
+    if (courseData?.price === 0) return;
     const { error } = await supabase
       .from("profiles")
       .update({ trial_course_id: courseId })

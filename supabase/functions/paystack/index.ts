@@ -190,6 +190,20 @@ serve(async (req) => {
               purchased_at: new Date().toISOString(),
             }, { onConflict: "user_id,course_id" });
 
+          // Auto-enroll user if not already enrolled
+          const { data: existingEnrollment } = await adminClient
+            .from("enrollments")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("course_id", courseId)
+            .maybeSingle();
+          
+          if (!existingEnrollment) {
+            await adminClient
+              .from("enrollments")
+              .insert({ user_id: userId, course_id: courseId });
+          }
+
           await adminClient
             .from("profiles")
             .update({ subscription_status: "paid" })
