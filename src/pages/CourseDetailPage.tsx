@@ -224,8 +224,8 @@ const CourseDetailPage = () => {
               </div>
             )}
 
-            {/* Trial course but it's accessible */}
-            {user && trialActive && !profile?.trial_course_id && !courseAccess && (
+            {/* Trial course selection - only for paid courses */}
+            {user && trialActive && !profile?.trial_course_id && !courseAccess && !isFree && (
               <div className="glass-card p-4 mb-6 border-primary/30 bg-primary/5 text-sm">
                 You can select <strong>one course</strong> for your 7-day free trial. Enroll below to start!
               </div>
