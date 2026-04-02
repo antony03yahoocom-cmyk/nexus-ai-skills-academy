@@ -184,6 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setIsAdmin(false);
     setPurchases([]);
+    setFreeCourseIds([]);
   };
 
   return (
