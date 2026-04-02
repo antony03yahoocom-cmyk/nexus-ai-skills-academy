@@ -80,14 +80,14 @@ const CourseDetailPage = () => {
           reference: "free-course",
         });
       }
-      // If on trial and no trial course selected yet, select this one
-      if (trialActive && !profile?.trial_course_id) {
+      // If on trial and no trial course selected yet, and course is NOT free, select this one
+      if (trialActive && !profile?.trial_course_id && course?.price !== 0) {
         await selectTrialCourse(courseId!);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["enrollment"] });
-      if (course?.price === 0) refreshProfile();
+      refreshProfile();
       toast.success("Enrolled successfully!");
     },
     onError: (e: any) => toast.error(e.message),
