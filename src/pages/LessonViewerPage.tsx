@@ -33,17 +33,25 @@ const LessonViewerPage = () => {
   const course = (lesson as any)?.modules?.courses;
   const currentModule = (lesson as any)?.modules;
 
-  // All lessons in course (flat, ordered)
-  const { data: allCourseLessons = [] } = useQuery({
-    queryKey: ["all-course-lessons", courseId],
-    queryFn: async () => {
-      const { data: mods } = await supabase.from("modules").select("*").eq("course_id", courseId!).order("sort_order");
-      if (!mods?.length) return [];
-      const { data } = await supabase.from("lessons").select("*").in("module_id", mods.map((m: any) => m.id)).order("sort_order");
-      return data ?? [];
-    },
-    enabled: !!courseId,
-  });
+// ✅ NEW (fixed)
+const { data: allCourseLessons = [] } = useQuery({
+  queryKey: ["all-course-lessons", courseId],
+  queryFn: async () => {
+    const { data: mods } = await supabase.from("modules").select("*").eq("course_id", courseId!).order("sort_order");
+    if (!mods?.length) return [];
+    const { data } = await supabase.from("lessons").select("*").in("module_id", mods.map((m: any) => m.id));
+    if (!data) return [];
+    // Build a map of module_id → its position in the sorted module list
+    const moduleOrder = new Map(mods.map((m: any, i: number) => [m.id, m.sort_order ?? i]));
+    // Sort: by module order first, then by lesson sort_order within each module
+    return data.sort((a: any, b: any) => {
+      const modDiff = (moduleOrder.get(a.module_id) ?? 0) - (moduleOrder.get(b.module_id) ?? 0);
+      if (modDiff !== 0) return modDiff;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+  },
+  enabled: !!courseId,
+});
 
   const { data: modules = [] } = useQuery({
     queryKey: ["course-modules-viewer", courseId],
