@@ -201,8 +201,8 @@ const CourseDetailPage = () => {
               <span className="font-bold text-foreground text-lg">{priceFormatted}</span>
             </div>
 
-            {/* Trial banner */}
-            {user && trialActive && profile?.trial_course_id === courseId && !courseAccess && (
+            {/* Trial banner - only for paid courses */}
+            {user && trialActive && profile?.trial_course_id === courseId && !courseAccess && !isFree && (
               <div className="glass-card p-3 mb-4 border-accent/30 bg-accent/5 text-sm">
                 🕐 Trial: {trialDaysLeft} days left · First 7 lessons accessible
               </div>
