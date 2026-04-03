@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Send, Users, Crown, Trash2, UserMinus, Settings } from "lucide-react";
+import { ArrowLeft, Send, Users, Crown, Trash2, UserMinus, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 const GroupChatPage = () => {
@@ -18,6 +18,9 @@ const GroupChatPage = () => {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [membersOpen, setMembersOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Fetch group info
@@ -34,12 +37,8 @@ const GroupChatPage = () => {
   const { data: members = [] } = useQuery({
     queryKey: ["group-members", groupId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("group_members")
-        .select("*")
-        .eq("group_id", groupId!);
+      const { data } = await supabase.from("group_members").select("*").eq("group_id", groupId!);
       if (!data) return [];
-      // Fetch profile names
       const userIds = data.map((m: any) => m.user_id);
       const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds);
       const nameMap: Record<string, string> = {};
@@ -91,15 +90,37 @@ const GroupChatPage = () => {
 
   const sendMessage = useMutation({
     mutationFn: async () => {
+      setUploading(true);
+      let fileUrl: string | null = null;
+
+      if (selectedFile) {
+        const path = `${groupId}/${user!.id}/${Date.now()}_${selectedFile.name}`;
+        const { error: uploadError } = await supabase.storage.from("group-files").upload(path, selectedFile);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from("group-files").getPublicUrl(path);
+        fileUrl = data?.publicUrl || null;
+      }
+
+      const content = message.trim() || (selectedFile ? `📎 ${selectedFile.name}` : "");
+      if (!content && !fileUrl) throw new Error("Empty message");
+
       const { error } = await supabase.from("group_messages").insert({
         group_id: groupId!,
         user_id: user!.id,
-        content: message.trim(),
+        content,
+        file_url: fileUrl,
       });
       if (error) throw error;
     },
-    onSuccess: () => setMessage(""),
-    onError: () => toast.error("Failed to send message"),
+    onSuccess: () => {
+      setMessage("");
+      setSelectedFile(null);
+      setUploading(false);
+    },
+    onError: (e: any) => {
+      toast.error(e.message || "Failed to send message");
+      setUploading(false);
+    },
   });
 
   const deleteMessage = useMutation({
@@ -131,8 +152,29 @@ const GroupChatPage = () => {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || isSuspended) return;
+    if ((!message.trim() && !selectedFile) || isSuspended) return;
     sendMessage.mutate();
+  };
+
+  const renderFilePreview = (fileUrl: string) => {
+    const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileUrl);
+    const fileName = decodeURIComponent(fileUrl.split("/").pop()?.replace(/^\d+_/, "") || "File");
+
+    if (isImage) {
+      return (
+        <a href={fileUrl} target="_blank" rel="noreferrer" className="block mt-1.5">
+          <img src={fileUrl} alt={fileName} className="max-w-[240px] max-h-[200px] rounded-lg object-cover border border-border/30" />
+        </a>
+      );
+    }
+
+    const isPdf = /\.pdf$/i.test(fileUrl);
+    return (
+      <a href={fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 mt-1.5 p-2 rounded-lg bg-background/30 border border-border/20 hover:bg-background/50 transition text-xs">
+        {isPdf ? <FileText className="w-4 h-4 shrink-0" /> : <Paperclip className="w-4 h-4 shrink-0" />}
+        <span className="truncate">{fileName}</span>
+      </a>
+    );
   };
 
   if (!myMembership && group) {
@@ -215,6 +257,7 @@ const GroupChatPage = () => {
                 <div className={`max-w-[80%] sm:max-w-[65%] group relative ${isOwn ? "bg-primary text-primary-foreground" : "bg-secondary"} rounded-2xl px-4 py-2.5`}>
                   {!isOwn && <p className="text-[10px] font-semibold opacity-70 mb-0.5">{msg.full_name}</p>}
                   <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                  {msg.file_url && renderFilePreview(msg.file_url)}
                   <p className={`text-[10px] mt-1 ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
@@ -234,9 +277,54 @@ const GroupChatPage = () => {
         </div>
       </div>
 
+      {/* Selected file preview */}
+      {selectedFile && (
+        <div className="border-t border-border/30 bg-secondary/30">
+          <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-2">
+            {selectedFile.type.startsWith("image/") ? (
+              <ImageIcon className="w-4 h-4 text-primary shrink-0" />
+            ) : (
+              <FileText className="w-4 h-4 text-primary shrink-0" />
+            )}
+            <span className="text-xs truncate flex-1">{selectedFile.name}</span>
+            <span className="text-[10px] text-muted-foreground">{(selectedFile.size / 1024).toFixed(0)} KB</span>
+            <button onClick={() => setSelectedFile(null)} className="p-0.5 hover:bg-secondary rounded">
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm">
-        <form onSubmit={handleSend} className="max-w-4xl mx-auto px-4 py-3 flex gap-2">
+        <form onSubmit={handleSend} className="max-w-4xl mx-auto px-4 py-3 flex gap-2 items-center">
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.txt"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                if (file.size > 20 * 1024 * 1024) {
+                  toast.error("File too large (max 20MB)");
+                  return;
+                }
+                setSelectedFile(file);
+              }
+              e.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            disabled={isSuspended}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="w-4 h-4" />
+          </Button>
           <Input
             placeholder={isSuspended ? "This group is suspended" : "Type a message..."}
             value={message}
@@ -244,7 +332,7 @@ const GroupChatPage = () => {
             disabled={isSuspended}
             className="flex-1"
           />
-          <Button type="submit" size="icon" disabled={!message.trim() || sendMessage.isPending || isSuspended}>
+          <Button type="submit" size="icon" disabled={(!message.trim() && !selectedFile) || uploading || isSuspended}>
             <Send className="w-4 h-4" />
           </Button>
         </form>
