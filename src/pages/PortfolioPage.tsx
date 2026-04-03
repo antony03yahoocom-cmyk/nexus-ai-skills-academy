@@ -98,11 +98,19 @@ const PortfolioPage = () => {
                   </div>
                   {p.project_files && (p.project_files as string[]).length > 0 && (
                     <div className="flex gap-2 mt-3 flex-wrap">
-                      {(p.project_files as string[]).map((url: string, i: number) => (
-                        <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                          <Upload className="w-3 h-3" /> File {i + 1}
-                        </a>
-                      ))}
+                      {(p.project_files as string[]).map((url: string, i: number) => {
+                        const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
+                        const fileName = decodeURIComponent(url.split("/").pop()?.replace(/^\d+_/, "") || `File ${i + 1}`);
+                        return isImage ? (
+                          <a key={i} href={url} target="_blank" rel="noreferrer">
+                            <img src={url} alt={fileName} className="w-20 h-20 object-cover rounded-lg border border-border hover:opacity-80 transition" />
+                          </a>
+                        ) : (
+                          <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                            <Upload className="w-3 h-3" /> {fileName}
+                          </a>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

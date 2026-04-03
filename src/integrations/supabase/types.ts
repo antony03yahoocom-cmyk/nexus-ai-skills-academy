@@ -296,6 +296,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          file_url: string | null
           group_id: string
           id: string
           user_id: string
@@ -303,6 +304,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          file_url?: string | null
           group_id: string
           id?: string
           user_id: string
@@ -310,6 +312,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          file_url?: string | null
           group_id?: string
           id?: string
           user_id?: string
