@@ -12,14 +12,14 @@ const SubscribePage = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const verify = searchParams.get("verify");
-    const reference = searchParams.get("reference");
-    if (verify && reference && session) {
-      verifyPayment(reference);
-    }
-  }, [searchParams, session]);
-
+useEffect(() => {
+  const verify = searchParams.get("verify");
+  const reference = searchParams.get("reference");
+  
+  if (verify === "true" && reference && session) {
+    verifyPayment(reference);
+  }
+}, [searchParams, session]);
   const verifyPayment = async (reference: string) => {
     setLoading(true);
     try {
@@ -67,7 +67,7 @@ const SubscribePage = () => {
           body: JSON.stringify({
             amount: 500000, // KES 5,000 in cents
             plan_type: "premium",
-            callback_url: `${window.location.origin}/subscribe?verify=true`,
+            callback_url: `${window.location.origin}/subscribe?verify=true&reference=`,
           }),
         }
       );
