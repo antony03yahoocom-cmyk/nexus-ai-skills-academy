@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const CourseDetailPage = () => {
   const { courseId } = useParams();
@@ -132,12 +132,12 @@ const CourseDetailPage = () => {
   };
 
   // Payment verification on callback
-  const [searchParams] = [new URLSearchParams(window.location.search)];
-  const verifyRef = searchParams.get("reference");
-  const shouldVerify = searchParams.get("verify");
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const verifyRef = searchParams.get("reference");
+    const shouldVerify = searchParams.get("verify");
 
-  useState(() => {
-    if (shouldVerify && verifyRef && session) {
+    if (shouldVerify === "true" && verifyRef && session) {
       (async () => {
         try {
           const resp = await fetch(
@@ -154,20 +154,22 @@ const CourseDetailPage = () => {
           );
           const result = await resp.json();
           if (result.success) {
-            toast.success("Payment successful! You now have full access.");
+            toast.success("Payment successful! You now have full access to this course.");
             await refreshProfile();
             queryClient.invalidateQueries({ queryKey: ["enrollment"] });
+            queryClient.invalidateQueries({ queryKey: ["course-purchases"] });
             // Clean URL
             window.history.replaceState({}, "", `/courses/${courseId}`);
           } else {
-            toast.error("Payment verification failed.");
+            toast.error("Payment verification failed. Please try again.");
           }
-        } catch {
-          toast.error("Verification error.");
+        } catch (error) {
+          console.error("Verification error:", error);
+          toast.error("Verification error. Please contact support.");
         }
       })();
     }
-  });
+  }, [session, courseId, queryClient]);
 
   // Build flat lesson list with global index for sequential access
   const allLessonsOrdered: any[] = [];
