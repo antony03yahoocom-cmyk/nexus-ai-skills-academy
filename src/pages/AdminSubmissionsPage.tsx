@@ -117,14 +117,14 @@ const AdminSubmissionsPage = () => {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: s.id, status: "Approved" })} disabled={s.status === "Approved"}>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatus.mutate({ id: s.id, status: "Approved" })} disabled={s.status === "Approved"}>
                         <CheckCircle className="w-4 h-4 mr-1 text-success" /> Approve
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: s.id, status: "Rejected" })} disabled={s.status === "Rejected"}>
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatus.mutate({ id: s.id, status: "Rejected" })} disabled={s.status === "Rejected"}>
                         <XCircle className="w-4 h-4 mr-1 text-destructive" /> Reject
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setFeedbackFor(s.id); setFeedback(s.feedback || ""); }}>
+                      <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setFeedbackFor(s.id); setFeedback(s.feedback || ""); }}>
                         <MessageSquare className="w-4 h-4" />
                       </Button>
                     </div>

@@ -432,7 +432,7 @@ const { data: allCourseLessons = [] } = useQuery({
                         />
                         <div className="space-y-1">
                           <Label className="text-xs">Attach files (optional)</Label>
-                          <Input id="submission-file" type="file" multiple className="bg-secondary border-border text-sm" />
+                          <Input id="submission-file" type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt,.zip" className="bg-secondary border-border text-sm" />
                         </div>
                         <Button size="sm" variant="hero" onClick={() => submitAssignment(a.id)} disabled={submitting}>
                           <Send className="w-4 h-4 mr-1" />
