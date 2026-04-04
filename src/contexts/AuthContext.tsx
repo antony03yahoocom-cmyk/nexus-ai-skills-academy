@@ -61,6 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         id: data.id,
         user_id: data.user_id,
         full_name: data.full_name,
+        avatar_url: data.avatar_url ?? null,
         subscription_status: data.subscription_status,
         trial_start_date: data.trial_start_date,
         trial_course_id: data.trial_course_id ?? null,
