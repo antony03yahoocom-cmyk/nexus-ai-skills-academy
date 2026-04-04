@@ -23,7 +23,7 @@ const AdminSidebar = () => {
       <div className="p-5 border-b border-sidebar-border">
         <Link to="/" className="flex items-center gap-2">
           <Cpu className="w-6 h-6 text-primary" />
-          <span className="font-display font-bold">NEXUS AI</span>
+          <span className="font-display font-bold">NEXUS AI ACADEMY</span>
         </Link>
         <span className="text-xs text-primary font-medium mt-1 block">Admin Panel</span>
       </div>

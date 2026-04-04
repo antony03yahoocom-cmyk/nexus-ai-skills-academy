@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, FolderOpen, Award, CreditCard, LogOut, Cpu, Menu, X, MessageCircle } from "lucide-react";
+import { LayoutDashboard, BookOpen, FolderOpen, Award, CreditCard, LogOut, Cpu, Menu, X, MessageCircle, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 
@@ -23,7 +23,7 @@ const DashboardTopNav = () => {
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2 shrink-0">
             <Cpu className="w-6 h-6 text-primary" />
-            <span className="font-display font-bold text-lg">NEXUS AI</span>
+            <span className="font-display font-bold text-lg">NEXUS AI ACADEMY</span>
           </Link>
 
           {/* Desktop nav */}
@@ -48,6 +48,12 @@ const DashboardTopNav = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
+            <Link
+              to="/dashboard/settings"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+            </Link>
             <span className="text-sm text-muted-foreground">{profile?.full_name || "Student"}</span>
             <button
               onClick={signOut}

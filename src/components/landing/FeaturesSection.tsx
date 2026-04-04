@@ -12,7 +12,7 @@ const FeaturesSection = () => (
     <div className="container mx-auto px-4">
       <div className="text-center mb-16">
         <h2 className="text-3xl md:text-5xl font-bold mb-4">
-          Why <span className="gradient-text">NEXUS AI</span>?
+          Why <span className="gradient-text">NEXUS AI ACADEMY</span>?
         </h2>
         <p className="text-muted-foreground text-lg max-w-xl mx-auto">
           Everything you need to master in-demand skills.

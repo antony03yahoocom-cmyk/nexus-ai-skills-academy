@@ -6,6 +6,7 @@ interface Profile {
   id: string;
   user_id: string;
   full_name: string | null;
+  avatar_url: string | null;
   subscription_status: string;
   trial_start_date: string;
   trial_course_id: string | null;
@@ -60,6 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         id: data.id,
         user_id: data.user_id,
         full_name: data.full_name,
+        avatar_url: data.avatar_url ?? null,
         subscription_status: data.subscription_status,
         trial_start_date: data.trial_start_date,
         trial_course_id: data.trial_course_id ?? null,

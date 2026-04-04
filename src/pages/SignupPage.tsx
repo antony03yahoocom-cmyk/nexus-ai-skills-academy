@@ -54,7 +54,7 @@ const SignupPage = () => {
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
             <Cpu className="w-8 h-8 text-primary" />
-            <span className="font-display font-bold text-xl">NEXUS AI</span>
+            <span className="font-display font-bold text-xl">NEXUS AI ACADEMY</span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">Start your free trial</h1>
           <p className="text-muted-foreground">7 days of unlimited access</p>
