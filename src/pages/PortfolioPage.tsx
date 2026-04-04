@@ -52,7 +52,7 @@ const PortfolioPage = () => {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <Cpu className="w-6 h-6 text-primary" />
-            <span className="font-display font-bold">NEXUS AI</span>
+            <span className="font-display font-bold">NEXUS AI ACADEMY</span>
           </Link>
           <div className="flex items-center gap-3">
             <Select value={courseFilter} onValueChange={setCourseFilter}>

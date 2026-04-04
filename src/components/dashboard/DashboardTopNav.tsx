@@ -23,7 +23,7 @@ const DashboardTopNav = () => {
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2 shrink-0">
             <Cpu className="w-6 h-6 text-primary" />
-            <span className="font-display font-bold text-lg">NEXUS AI</span>
+            <span className="font-display font-bold text-lg">NEXUS AI ACADEMY</span>
           </Link>
 
           {/* Desktop nav */}
