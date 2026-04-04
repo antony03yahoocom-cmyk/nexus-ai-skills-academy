@@ -48,6 +48,12 @@ const DashboardTopNav = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
+            <Link
+              to="/dashboard/settings"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+            </Link>
             <span className="text-sm text-muted-foreground">{profile?.full_name || "Student"}</span>
             <button
               onClick={signOut}
