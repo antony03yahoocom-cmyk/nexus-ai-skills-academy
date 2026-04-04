@@ -455,8 +455,8 @@ const { data: allCourseLessons = [] } = useQuery({
         </div>
       </div>
 
-      {/* Sidebar */}
-      <div className="lg:w-80 border-l border-border bg-card/30 overflow-auto lg:max-h-screen lg:sticky lg:top-0">
+      {/* Sidebar - hidden on mobile, shown below content on tablet, sticky on desktop */}
+      <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-card/30 overflow-auto lg:max-h-screen lg:sticky lg:top-0">
         <div className="p-4 border-b border-border">
           <h3 className="font-semibold text-sm mb-2">{course?.title}</h3>
           <Progress value={progressPercent} className="h-1.5 bg-secondary mb-1" />
