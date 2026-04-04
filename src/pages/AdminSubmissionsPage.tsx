@@ -84,16 +84,30 @@ const AdminSubmissionsPage = () => {
                       </p>
                       {s.text_submission && <p className="text-sm mt-2 bg-secondary/50 p-3 rounded-lg">{s.text_submission}</p>}
                       {s.file_url && (
-                        <a href={s.file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-2">
-                          <Upload className="w-3 h-3" /> View File
-                        </a>
+                        <div className="mt-2">
+                          {/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(s.file_url) ? (
+                            <a href={s.file_url} target="_blank" rel="noreferrer">
+                              <img src={s.file_url} alt="Submission" className="max-w-[200px] max-h-[150px] rounded-lg border border-border object-cover" />
+                            </a>
+                          ) : (
+                            <a href={s.file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                              <Upload className="w-3 h-3" /> View File
+                            </a>
+                          )}
+                        </div>
                       )}
                       {s.submission_files && (s.submission_files as string[]).length > 0 && (
                         <div className="flex gap-2 mt-2 flex-wrap">
                           {(s.submission_files as string[]).map((url: string, i: number) => (
-                            <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                              <Upload className="w-3 h-3" /> File {i + 1}
-                            </a>
+                            /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url) ? (
+                              <a key={i} href={url} target="_blank" rel="noreferrer">
+                                <img src={url} alt={`File ${i + 1}`} className="max-w-[120px] max-h-[90px] rounded-lg border border-border object-cover" />
+                              </a>
+                            ) : (
+                              <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                <Upload className="w-3 h-3" /> File {i + 1}
+                              </a>
+                            )
                           ))}
                         </div>
                       )}
@@ -103,14 +117,14 @@ const AdminSubmissionsPage = () => {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: s.id, status: "Approved" })} disabled={s.status === "Approved"}>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatus.mutate({ id: s.id, status: "Approved" })} disabled={s.status === "Approved"}>
                         <CheckCircle className="w-4 h-4 mr-1 text-success" /> Approve
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: s.id, status: "Rejected" })} disabled={s.status === "Rejected"}>
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => updateStatus.mutate({ id: s.id, status: "Rejected" })} disabled={s.status === "Rejected"}>
                         <XCircle className="w-4 h-4 mr-1 text-destructive" /> Reject
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setFeedbackFor(s.id); setFeedback(s.feedback || ""); }}>
+                      <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setFeedbackFor(s.id); setFeedback(s.feedback || ""); }}>
                         <MessageSquare className="w-4 h-4" />
                       </Button>
                     </div>

@@ -154,8 +154,8 @@ const { data: allCourseLessons = [] } = useQuery({
         const path = `${user!.id}/${Date.now()}_${file.name}`;
         const { error } = await supabase.storage.from("assignment-files").upload(path, file);
         if (error) { toast.error("Upload failed: " + error.message); setSubmitting(false); return; }
-        const { data } = await supabase.storage.from("assignment-files").createSignedUrl(path, 3600);
-        if (data?.signedUrl) fileUrls.push(data.signedUrl);
+        const { data } = supabase.storage.from("assignment-files").getPublicUrl(path);
+        if (data?.publicUrl) fileUrls.push(data.publicUrl);
       }
     }
 
@@ -432,7 +432,7 @@ const { data: allCourseLessons = [] } = useQuery({
                         />
                         <div className="space-y-1">
                           <Label className="text-xs">Attach files (optional)</Label>
-                          <Input id="submission-file" type="file" multiple className="bg-secondary border-border text-sm" />
+                          <Input id="submission-file" type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt,.zip" className="bg-secondary border-border text-sm" />
                         </div>
                         <Button size="sm" variant="hero" onClick={() => submitAssignment(a.id)} disabled={submitting}>
                           <Send className="w-4 h-4 mr-1" />
@@ -455,8 +455,8 @@ const { data: allCourseLessons = [] } = useQuery({
         </div>
       </div>
 
-      {/* Sidebar */}
-      <div className="lg:w-80 border-l border-border bg-card/30 overflow-auto lg:max-h-screen lg:sticky lg:top-0">
+      {/* Sidebar - hidden on mobile, shown below content on tablet, sticky on desktop */}
+      <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-card/30 overflow-auto lg:max-h-screen lg:sticky lg:top-0">
         <div className="p-4 border-b border-border">
           <h3 className="font-semibold text-sm mb-2">{course?.title}</h3>
           <Progress value={progressPercent} className="h-1.5 bg-secondary mb-1" />
