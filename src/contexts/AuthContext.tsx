@@ -6,6 +6,7 @@ interface Profile {
   id: string;
   user_id: string;
   full_name: string | null;
+  avatar_url: string | null;
   subscription_status: string;
   trial_start_date: string;
   trial_course_id: string | null;
