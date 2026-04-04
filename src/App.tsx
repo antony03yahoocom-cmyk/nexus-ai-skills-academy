@@ -29,7 +29,6 @@ import DiscussionGroupsPage from "./pages/DiscussionGroupsPage.tsx";
 import GroupChatPage from "./pages/GroupChatPage.tsx";
 import AdminGroupsPage from "./pages/AdminGroupsPage.tsx";
 import ProfileSettingsPage from "./pages/ProfileSettingsPage.tsx";
-import AdminGroupsPage from "./pages/AdminGroupsPage.tsx";
 
 const queryClient = new QueryClient();
 
