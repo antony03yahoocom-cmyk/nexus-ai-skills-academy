@@ -154,8 +154,8 @@ const { data: allCourseLessons = [] } = useQuery({
         const path = `${user!.id}/${Date.now()}_${file.name}`;
         const { error } = await supabase.storage.from("assignment-files").upload(path, file);
         if (error) { toast.error("Upload failed: " + error.message); setSubmitting(false); return; }
-        const { data } = await supabase.storage.from("assignment-files").createSignedUrl(path, 3600);
-        if (data?.signedUrl) fileUrls.push(data.signedUrl);
+        const { data } = supabase.storage.from("assignment-files").getPublicUrl(path);
+        if (data?.publicUrl) fileUrls.push(data.publicUrl);
       }
     }
 
