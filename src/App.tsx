@@ -30,6 +30,8 @@ import DiscussionGroupsPage from "./pages/DiscussionGroupsPage.tsx";
 import GroupChatPage from "./pages/GroupChatPage.tsx";
 import AdminGroupsPage from "./pages/AdminGroupsPage.tsx";
 import ProfileSettingsPage from "./pages/ProfileSettingsPage.tsx";
+import MessagesPage from "./pages/MessagesPage.tsx";
+import AdminMessagesPage from "./pages/AdminMessagesPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +57,7 @@ const App = () => (
             <Route path="/discussions" element={<ProtectedRoute><DiscussionGroupsPage /></ProtectedRoute>} />
             <Route path="/discussions/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
             <Route path="/dashboard/settings" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
+            <Route path="/dashboard/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
             <Route path="/dashboard/*" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/courses" element={<AdminRoute><AdminCoursesPage /></AdminRoute>} />
@@ -65,6 +68,7 @@ const App = () => (
             <Route path="/admin/projects" element={<AdminRoute><AdminProjectsPage /></AdminRoute>} />
             <Route path="/admin/certificates" element={<AdminRoute><AdminCertificatesPage /></AdminRoute>} />
             <Route path="/admin/groups" element={<AdminRoute><AdminGroupsPage /></AdminRoute>} />
+            <Route path="/admin/messages" element={<AdminRoute><AdminMessagesPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <StudentChatbot />
