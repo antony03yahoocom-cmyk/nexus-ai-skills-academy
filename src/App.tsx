@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, AdminRoute } from "@/components/auth/ProtectedRoute";
+import StudentChatbot from "@/components/chatbot/StudentChatbot";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/admin/groups" element={<AdminRoute><AdminGroupsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <StudentChatbot />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
