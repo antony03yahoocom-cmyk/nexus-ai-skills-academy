@@ -67,6 +67,7 @@ const App = () => (
             <Route path="/admin/groups" element={<AdminRoute><AdminGroupsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <StudentChatbot />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
