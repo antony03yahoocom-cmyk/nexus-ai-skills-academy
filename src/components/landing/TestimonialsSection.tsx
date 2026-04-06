@@ -2,21 +2,21 @@ import { Star } from "lucide-react";
 
 const testimonials = [
   {
-    name: "Sarah Chen",
-    role: "ML Engineer at Google",
-    text: "NEXUS AI Academy gave me the exact skills I needed to transition into machine learning. The course quality is unmatched.",
+    name: "Wanjiku Muthoni",
+    role: "AI Engineer at Safaricom",
+    text: "NEXUS AI Academy gave me the exact skills I needed to transition into machine learning. The course quality is unmatched and truly world-class.",
     rating: 5,
   },
   {
-    name: "Marcus Johnson",
-    role: "Full-Stack Developer",
+    name: "Kwame Asante",
+    role: "Full-Stack Developer, Lagos",
     text: "The project-based approach helped me build a real portfolio. I landed my dream job within 3 months of completing the web dev track.",
     rating: 5,
   },
   {
-    name: "Aisha Patel",
-    role: "Data Analyst at Meta",
-    text: "Crystal clear explanations and hands-on assignments. The data analysis course is worth every penny.",
+    name: "Amina Osei",
+    role: "Data Analyst at Andela",
+    text: "Crystal clear explanations and hands-on assignments. The data analysis course transformed my career prospects entirely.",
     rating: 5,
   },
 ];
