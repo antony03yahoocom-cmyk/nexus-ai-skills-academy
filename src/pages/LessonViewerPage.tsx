@@ -352,11 +352,17 @@ const { data: allCourseLessons = [] } = useQuery({
             <div
               className="text-muted-foreground leading-relaxed whitespace-pre-wrap [&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80"
               dangerouslySetInnerHTML={{
-                __html: lesson.content_text
-                  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                  .replace(/\n/g, '<br/>')
-                  .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-              }}
+  __html: lesson.content_text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>')
+    .replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+      try {
+        const safe = new URL(url);
+        if (safe.protocol !== 'https:' && safe.protocol !== 'http:') return url;
+        return `<a href="${safe.href}" target="_blank" rel="noopener noreferrer">${safe.href}</a>`;
+      } catch { return url; }
+    })
+}}
             />
             </div>
           )}

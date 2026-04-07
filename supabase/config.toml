@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.evaluate-assignment]
 verify_jwt = false
+
+[functions.student-chatbot]
+verify_jwt = true
