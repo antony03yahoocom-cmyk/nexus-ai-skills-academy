@@ -1,21 +1,62 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, FolderOpen, Award, CreditCard, LogOut, Cpu, Menu, X, MessageCircle, Settings } from "lucide-react";
+import { LayoutDashboard, BookOpen, FolderOpen, Award, CreditCard, LogOut, Cpu, Menu, X, MessageCircle, Settings, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
-
-const navLinks = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/courses", icon: BookOpen, label: "Courses" },
-  { to: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
-  { to: "/dashboard/certificates", icon: Award, label: "Certificates" },
-  { to: "/discussions", icon: MessageCircle, label: "Discussions" },
-  { to: "/subscribe", icon: CreditCard, label: "Premium" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const DashboardTopNav = () => {
   const location = useLocation();
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Unread private messages count
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ["unread-messages", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("private_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver_id", user!.id)
+        .eq("is_read", false);
+      return count ?? 0;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  // Unread group messages: messages in user's groups from last 24h not sent by user
+  const { data: unreadGroups = 0 } = useQuery({
+    queryKey: ["unread-group-msgs", user?.id],
+    queryFn: async () => {
+      const { data: memberships } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", user!.id);
+      const groupIds = (memberships ?? []).map((m: any) => m.group_id);
+      if (groupIds.length === 0) return 0;
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from("group_messages")
+        .select("*", { count: "exact", head: true })
+        .in("group_id", groupIds)
+        .neq("user_id", user!.id)
+        .gte("created_at", since);
+      return count ?? 0;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  const navLinks = [
+    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/courses", icon: BookOpen, label: "Courses" },
+    { to: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
+    { to: "/dashboard/certificates", icon: Award, label: "Certificates" },
+    { to: "/discussions", icon: MessageCircle, label: "Discussions", badge: unreadGroups },
+    { to: "/dashboard/messages", icon: Mail, label: "Messages", badge: unreadMessages },
+    { to: "/subscribe", icon: CreditCard, label: "Premium" },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -34,7 +75,7 @@ const DashboardTopNav = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all duration-200 ${
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all duration-200 ${
                     isActive
                       ? "bg-primary/10 text-primary font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -42,6 +83,11 @@ const DashboardTopNav = () => {
                 >
                   <link.icon className="w-4 h-4" />
                   {link.label}
+                  {link.badge && link.badge > 0 ? (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                      {link.badge > 9 ? "9+" : link.badge}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}
@@ -79,12 +125,17 @@ const DashboardTopNav = () => {
                 key={link.to}
                 to={link.to}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
                   isActive ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground"
                 }`}
               >
                 <link.icon className="w-4 h-4" />
                 {link.label}
+                {link.badge && link.badge > 0 ? (
+                  <span className="ml-auto h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                    {link.badge > 9 ? "9+" : link.badge}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
