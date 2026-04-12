@@ -77,7 +77,7 @@ serve(async (req) => {
     if (approvalMode === "auto_basic") {
       await adminClient.from("submissions").update({
         status: "Approved",
-        feedback: "Auto-approved. Great work!",
+        feedback: "Thank you for your submission, your assignment is under review.",
       }).eq("id", submission_id);
 
       // Mark lesson complete
@@ -87,7 +87,7 @@ serve(async (req) => {
         lesson_id: lessonId,
       }, { onConflict: "user_id,lesson_id" });
 
-      return new Response(JSON.stringify({ status: "Approved", mode: "auto_basic", feedback: "Great work! Your assignment has been approved." }), {
+      return new Response(JSON.stringify({ status: "Approved", mode: "auto_basic", feedback: "Thank you for your submission, your assignment is under review." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -134,7 +134,7 @@ serve(async (req) => {
         // Fallback to auto-approve if no AI key
         await adminClient.from("submissions").update({
           status: "Approved",
-          feedback: "Validation passed. Auto-approved.",
+          feedback: "Thank you for your submission, your assignment is under review.",
         }).eq("id", submission_id);
 
         const lessonId = assignment.lesson_id;
@@ -143,7 +143,7 @@ serve(async (req) => {
           lesson_id: lessonId,
         }, { onConflict: "user_id,lesson_id" });
 
-        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Validation passed. Auto-approved.", validation_passed: true }), {
+        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Thank you for your submission, your assignment is under review.", validation_passed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -191,7 +191,7 @@ serve(async (req) => {
           // Fallback: approve on AI failure
           await adminClient.from("submissions").update({
             status: "Approved",
-            feedback: "Validation passed. Auto-approved (AI evaluation unavailable).",
+            feedback: "Thank you for your submission, your assignment is under review.",
           }).eq("id", submission_id);
 
           const lessonId = assignment.lesson_id;
@@ -200,14 +200,14 @@ serve(async (req) => {
             lesson_id: lessonId,
           }, { onConflict: "user_id,lesson_id" });
 
-          return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Auto-approved.", validation_passed: true }), {
+          return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Thank you for your submission, your assignment is under review.", validation_passed: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
         const aiData = await aiResponse.json();
         const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-        let evaluation = { approved: true, feedback: "Auto-approved." };
+        let evaluation = { approved: true, feedback: "Thank you for your submission, your assignment is under review." };
 
         if (toolCall?.function?.arguments) {
           try {
@@ -237,7 +237,7 @@ serve(async (req) => {
         // Fallback
         await adminClient.from("submissions").update({
           status: "Approved",
-          feedback: "Validation passed. Auto-approved.",
+          feedback: "Thank you for your submission, your assignment is under review.",
         }).eq("id", submission_id);
 
         const lessonId = assignment.lesson_id;
@@ -246,7 +246,7 @@ serve(async (req) => {
           lesson_id: lessonId,
         }, { onConflict: "user_id,lesson_id" });
 
-        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Auto-approved.", validation_passed: true }), {
+        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Thank you for your submission, your assignment is under review.", validation_passed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
