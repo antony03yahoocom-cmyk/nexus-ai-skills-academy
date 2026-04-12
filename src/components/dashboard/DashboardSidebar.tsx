@@ -1,21 +1,37 @@
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, BookOpen, Bell, Settings, LogOut, Cpu, CreditCard, FolderOpen, Award, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-
-const studentLinks = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/courses", icon: BookOpen, label: "Browse Courses" },
-  { to: "/dashboard/projects", icon: FolderOpen, label: "My Projects" },
-  { to: "/dashboard/certificates", icon: Award, label: "Certificates" },
-  { to: "/dashboard/messages", icon: Mail, label: "Messages" },
-  { to: "/dashboard/notifications", icon: Bell, label: "Notifications" },
-  { to: "/subscribe", icon: CreditCard, label: "Subscription" },
-  { to: "/dashboard/settings", icon: Settings, label: "Settings" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const DashboardSidebar = () => {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ["unread-messages-sidebar", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("private_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver_id", user!.id)
+        .eq("is_read", false);
+      return count ?? 0;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  const studentLinks = [
+    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/courses", icon: BookOpen, label: "Browse Courses" },
+    { to: "/dashboard/projects", icon: FolderOpen, label: "My Projects" },
+    { to: "/dashboard/certificates", icon: Award, label: "Certificates" },
+    { to: "/dashboard/messages", icon: Mail, label: "Messages", badge: unreadMessages },
+    { to: "/dashboard/notifications", icon: Bell, label: "Notifications" },
+    { to: "/subscribe", icon: CreditCard, label: "Subscription" },
+    { to: "/dashboard/settings", icon: Settings, label: "Settings" },
+  ];
 
   return (
     <aside className="w-64 min-h-screen bg-sidebar border-r border-sidebar-border flex flex-col shrink-0 hidden lg:flex">
@@ -29,9 +45,20 @@ const DashboardSidebar = () => {
         {studentLinks.map((link) => {
           const isActive = location.pathname === link.to;
           return (
-            <Link key={link.to} to={link.to} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground hover:bg-sidebar-accent/50"}`}>
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+              }`}
+            >
               <link.icon className="w-4 h-4" />
-              {link.label}
+              <span className="flex-1">{link.label}</span>
+              {link.badge && link.badge > 0 ? (
+                <span className="h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                  {link.badge > 9 ? "9+" : link.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}
