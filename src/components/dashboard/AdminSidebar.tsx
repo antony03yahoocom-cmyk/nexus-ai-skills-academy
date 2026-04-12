@@ -1,23 +1,56 @@
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, BookOpen, Users, Settings, LogOut, Cpu, Megaphone, FolderOpen, Award, FileText, MessageCircle, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-
-const adminLinks = [
-  { to: "/admin", icon: LayoutDashboard, label: "Overview" },
-  { to: "/admin/courses", icon: BookOpen, label: "Manage Courses" },
-  { to: "/admin/students", icon: Users, label: "Students" },
-  { to: "/admin/submissions", icon: FileText, label: "Submissions" },
-  { to: "/admin/projects", icon: FolderOpen, label: "Projects" },
-  { to: "/admin/certificates", icon: Award, label: "Certificates" },
-  { to: "/admin/announcements", icon: Megaphone, label: "Announcements" },
-  { to: "/admin/groups", icon: MessageCircle, label: "Groups" },
-  { to: "/admin/messages", icon: Mail, label: "Messages" },
-  { to: "/admin/settings", icon: Settings, label: "Settings" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminSidebar = () => {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+
+  // Unread private messages for admin
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ["admin-unread-messages", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("private_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver_id", user!.id)
+        .eq("is_read", false);
+      return count ?? 0;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  // New group messages in last 24h (not from admin)
+  const { data: unreadGroups = 0 } = useQuery({
+    queryKey: ["admin-unread-groups", user?.id],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from("group_messages")
+        .select("*", { count: "exact", head: true })
+        .neq("user_id", user!.id)
+        .gte("created_at", since);
+      return count ?? 0;
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  const adminLinks = [
+    { to: "/admin", icon: LayoutDashboard, label: "Overview" },
+    { to: "/admin/courses", icon: BookOpen, label: "Manage Courses" },
+    { to: "/admin/students", icon: Users, label: "Students" },
+    { to: "/admin/submissions", icon: FileText, label: "Submissions" },
+    { to: "/admin/projects", icon: FolderOpen, label: "Projects" },
+    { to: "/admin/certificates", icon: Award, label: "Certificates" },
+    { to: "/admin/announcements", icon: Megaphone, label: "Announcements" },
+    { to: "/admin/groups", icon: MessageCircle, label: "Groups", badge: unreadGroups },
+    { to: "/admin/messages", icon: Mail, label: "Messages", badge: unreadMessages },
+    { to: "/admin/settings", icon: Settings, label: "Settings" },
+  ];
 
   return (
     <aside className="w-64 min-h-screen bg-sidebar border-r border-sidebar-border flex flex-col shrink-0 hidden lg:flex">
@@ -32,9 +65,20 @@ const AdminSidebar = () => {
         {adminLinks.map((link) => {
           const isActive = location.pathname === link.to;
           return (
-            <Link key={link.to} to={link.to} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground hover:bg-sidebar-accent/50"}`}>
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+              }`}
+            >
               <link.icon className="w-4 h-4" />
-              {link.label}
+              <span className="flex-1">{link.label}</span>
+              {link.badge && link.badge > 0 ? (
+                <span className="h-5 min-w-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                  {link.badge > 9 ? "9+" : link.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}
