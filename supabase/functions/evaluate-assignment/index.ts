@@ -7,6 +7,38 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Send a private message from the first admin to the student as feedback notification
+async function sendFeedbackMessage(
+  adminClient: ReturnType<typeof createClient>,
+  studentId: string,
+  assignmentTitle: string,
+  status: string,
+  feedback: string
+) {
+  try {
+    const { data: adminRoles } = await adminClient
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin")
+      .limit(1)
+      .single();
+
+    if (!adminRoles?.user_id) return; // no admin found, skip silently
+
+    const statusLabel = status === "Approved" ? "✅ Approved" : "❌ Needs Revision";
+    const content = `📝 Assignment Update — "${assignmentTitle}"\n\nStatus: ${statusLabel}\n\nFeedback: ${feedback}`;
+
+    await adminClient.from("private_messages").insert({
+      sender_id: adminRoles.user_id,
+      receiver_id: studentId,
+      content,
+      is_read: false,
+    });
+  } catch (_err) {
+    // Non-fatal: don't fail the submission if message sending fails
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -48,7 +80,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch submission with assignment details
     const { data: submission, error: subErr } = await adminClient
       .from("submissions")
       .select("*, assignments(*, lessons(*, modules(*, courses(*))))")
@@ -66,39 +97,38 @@ serve(async (req) => {
     const course = assignment?.lessons?.modules?.courses;
     const approvalMode = course?.approval_mode || "manual";
 
-    // If manual mode, just return — admin will handle
     if (approvalMode === "manual") {
       return new Response(JSON.stringify({ status: "Pending", mode: "manual", feedback: "Your submission is under review by an instructor." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // AUTO BASIC: approve instantly
     if (approvalMode === "auto_basic") {
+      const feedbackMsg = "Thank you for your submission, your assignment is under review.";
       await adminClient.from("submissions").update({
         status: "Approved",
-        feedback: "Thank you for your submission, your assignment is under review.",
+        feedback: feedbackMsg,
       }).eq("id", submission_id);
 
-      // Mark lesson complete
       const lessonId = assignment.lesson_id;
       await adminClient.from("lesson_completions").upsert({
         user_id: user.id,
         lesson_id: lessonId,
       }, { onConflict: "user_id,lesson_id" });
 
-      return new Response(JSON.stringify({ status: "Approved", mode: "auto_basic", feedback: "Thank you for your submission, your assignment is under review." }), {
+      // ✅ Send private message feedback to student
+      await sendFeedbackMessage(adminClient, user.id, assignment.title, "Approved", feedbackMsg);
+
+      return new Response(JSON.stringify({ status: "Approved", mode: "auto_basic", feedback: feedbackMsg }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // AUTO SMART: rule-based validation + AI evaluation
     if (approvalMode === "auto_smart") {
       const textSubmission = submission.text_submission || "";
       const hasFiles = submission.submission_files && (submission.submission_files as string[]).length > 0;
       const wordCount = textSubmission.trim().split(/\s+/).filter(Boolean).length;
 
-      // Rule-based validation
       let validationPassed = true;
       let validationMessage = "";
 
@@ -123,18 +153,20 @@ serve(async (req) => {
           feedback: validationMessage,
         }).eq("id", submission_id);
 
+        // ✅ Send rejection feedback as private message
+        await sendFeedbackMessage(adminClient, user.id, assignment.title, "Rejected", validationMessage);
+
         return new Response(JSON.stringify({ status: "Rejected", mode: "auto_smart", feedback: validationMessage, validation_passed: false }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // AI evaluation
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (!LOVABLE_API_KEY) {
-        // Fallback to auto-approve if no AI key
+        const feedbackMsg = "Thank you for your submission, your assignment is under review.";
         await adminClient.from("submissions").update({
           status: "Approved",
-          feedback: "Thank you for your submission, your assignment is under review.",
+          feedback: feedbackMsg,
         }).eq("id", submission_id);
 
         const lessonId = assignment.lesson_id;
@@ -143,7 +175,9 @@ serve(async (req) => {
           lesson_id: lessonId,
         }, { onConflict: "user_id,lesson_id" });
 
-        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Thank you for your submission, your assignment is under review.", validation_passed: true }), {
+        await sendFeedbackMessage(adminClient, user.id, assignment.title, "Approved", feedbackMsg);
+
+        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: feedbackMsg, validation_passed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -188,10 +222,10 @@ serve(async (req) => {
         });
 
         if (!aiResponse.ok) {
-          // Fallback: approve on AI failure
+          const feedbackMsg = "Thank you for your submission, your assignment is under review.";
           await adminClient.from("submissions").update({
             status: "Approved",
-            feedback: "Thank you for your submission, your assignment is under review.",
+            feedback: feedbackMsg,
           }).eq("id", submission_id);
 
           const lessonId = assignment.lesson_id;
@@ -200,7 +234,9 @@ serve(async (req) => {
             lesson_id: lessonId,
           }, { onConflict: "user_id,lesson_id" });
 
-          return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Thank you for your submission, your assignment is under review.", validation_passed: true }), {
+          await sendFeedbackMessage(adminClient, user.id, assignment.title, "Approved", feedbackMsg);
+
+          return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: feedbackMsg, validation_passed: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -229,15 +265,18 @@ serve(async (req) => {
           }, { onConflict: "user_id,lesson_id" });
         }
 
+        // ✅ Send AI feedback as private message
+        await sendFeedbackMessage(adminClient, user.id, assignment.title, finalStatus, evaluation.feedback);
+
         return new Response(JSON.stringify({ status: finalStatus, mode: "auto_smart", feedback: evaluation.feedback, validation_passed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (aiErr) {
         console.error("AI evaluation error:", aiErr);
-        // Fallback
+        const feedbackMsg = "Thank you for your submission, your assignment is under review.";
         await adminClient.from("submissions").update({
           status: "Approved",
-          feedback: "Thank you for your submission, your assignment is under review.",
+          feedback: feedbackMsg,
         }).eq("id", submission_id);
 
         const lessonId = assignment.lesson_id;
@@ -246,7 +285,9 @@ serve(async (req) => {
           lesson_id: lessonId,
         }, { onConflict: "user_id,lesson_id" });
 
-        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: "Thank you for your submission, your assignment is under review.", validation_passed: true }), {
+        await sendFeedbackMessage(adminClient, user.id, assignment.title, "Approved", feedbackMsg);
+
+        return new Response(JSON.stringify({ status: "Approved", mode: "auto_smart", feedback: feedbackMsg, validation_passed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
