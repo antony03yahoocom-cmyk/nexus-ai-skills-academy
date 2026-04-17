@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import { Progress } from "@/components/ui/progress";
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-// Sanitize filename and add unique suffix to prevent collisions
 const sanitizeFileName = (name: string): string => {
   const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
   const base = name
@@ -33,11 +32,17 @@ const LessonViewerPage = () => {
   const [submissionText, setSubmissionText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-
-  // Track selected files per assignment ID — fixes the shared-ID bug
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>({});
-  // One ref per assignment — fixes the getElementById bug
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string[]>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Clean up all object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      Object.values(previewUrls).flat().forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: lesson } = useQuery({
     queryKey: ["lesson", lessonId],
@@ -143,19 +148,35 @@ const LessonViewerPage = () => {
     });
   };
 
+  const completedCount = allCompletions.length;
+  const totalLessons = allCourseLessons.length;
+  const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
   const markComplete = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("lesson_completions").insert({ user_id: user!.id, lesson_id: lessonId! });
       if (error) throw error;
+
+      // ✅ FIX: Update enrollment progress in DB so dashboard reflects real progress
+      if (courseId) {
+        const newCompletedCount = completedCount + 1;
+        const newProgress = totalLessons > 0 ? Math.round((newCompletedCount / totalLessons) * 100) : 0;
+        await supabase
+          .from("enrollments")
+          .update({ progress: newProgress })
+          .eq("user_id", user!.id)
+          .eq("course_id", courseId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-completions"] });
+      queryClient.invalidateQueries({ queryKey: ["enrollments"] }); // refresh dashboard progress
       toast.success("Lesson marked as complete!");
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Handle file selection with validation
+  // ✅ Handle file selection with size validation and image preview generation
   const handleFileChange = (assignmentId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const oversized = files.filter((f) => f.size > MAX_FILE_SIZE_BYTES);
@@ -164,19 +185,28 @@ const LessonViewerPage = () => {
       e.target.value = "";
       return;
     }
+    // Revoke old preview URLs for this assignment
+    previewUrls[assignmentId]?.forEach((u) => URL.revokeObjectURL(u));
+    // Create object URL previews for image files only
+    const newPreviews = files
+      .filter((f) => f.type.startsWith("image/"))
+      .map((f) => URL.createObjectURL(f));
+    setPreviewUrls((prev) => ({ ...prev, [assignmentId]: newPreviews }));
     setSelectedFiles((prev) => ({ ...prev, [assignmentId]: files }));
   };
 
   const removeFile = (assignmentId: string, index: number) => {
-    setSelectedFiles((prev) => {
-      const updated = [...(prev[assignmentId] || [])];
-      updated.splice(index, 1);
-      // Also clear the native input so re-selecting the same file triggers onChange
-      if (updated.length === 0 && fileInputRefs.current[assignmentId]) {
-        fileInputRefs.current[assignmentId]!.value = "";
-      }
-      return { ...prev, [assignmentId]: updated };
-    });
+    const currentFiles = selectedFiles[assignmentId] || [];
+    const updated = [...currentFiles];
+    updated.splice(index, 1);
+    if (updated.length === 0 && fileInputRefs.current[assignmentId]) {
+      fileInputRefs.current[assignmentId]!.value = "";
+    }
+    // Revoke old previews and generate new ones for remaining image files
+    previewUrls[assignmentId]?.forEach((u) => URL.revokeObjectURL(u));
+    const newPreviews = updated.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f));
+    setSelectedFiles((prev) => ({ ...prev, [assignmentId]: updated }));
+    setPreviewUrls((prev) => ({ ...prev, [assignmentId]: newPreviews }));
   };
 
   const submitAssignment = async (assignmentId: string) => {
@@ -206,7 +236,6 @@ const LessonViewerPage = () => {
 
         const { data: urlData } = supabase.storage.from("assignment-files").getPublicUrl(path);
         if (urlData?.publicUrl) fileUrls.push(urlData.publicUrl);
-
         setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 80));
       }
     }
@@ -265,9 +294,11 @@ const LessonViewerPage = () => {
       toast.success("Assignment submitted!");
     }
 
-    // Clear all state after successful submission
+    // Clear state after submission
     setSubmissionText("");
     setSelectedFiles((prev) => ({ ...prev, [assignmentId]: [] }));
+    previewUrls[assignmentId]?.forEach((u) => URL.revokeObjectURL(u));
+    setPreviewUrls((prev) => ({ ...prev, [assignmentId]: [] }));
     if (fileInputRefs.current[assignmentId]) {
       fileInputRefs.current[assignmentId]!.value = "";
     }
@@ -297,10 +328,6 @@ const LessonViewerPage = () => {
   const hasAssignments = assignments.length > 0;
   const canComplete = !currentCompletion && currentAssignmentsApproved;
 
-  const completedCount = allCompletions.length;
-  const totalLessons = allCourseLessons.length;
-  const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
-
   if (!lesson) return (
     <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">
       <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading...
@@ -311,19 +338,15 @@ const LessonViewerPage = () => {
     const prevLesson = globalIndex > 0 ? allCourseLessons[globalIndex - 1] : null;
     const prevNotCompleted = prevLesson && !allCompletions.includes(prevLesson.id);
     const prevAssignmentPending = prevLesson && !isLessonAssignmentApproved(prevLesson.id);
-
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="glass-card p-8 text-center max-w-md w-full">
           <Lock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Lesson Locked</h2>
           <p className="text-muted-foreground mb-4">
-            {prevAssignmentPending
-              ? "Complete and get your assignment approved to unlock this lesson."
-              : prevNotCompleted
-              ? "Complete the previous lesson first to unlock this one."
-              : trialActive && globalIndex >= 7
-              ? "This lesson is beyond the trial limit. Purchase the course for full access."
+            {prevAssignmentPending ? "Complete and get your assignment approved to unlock this lesson."
+              : prevNotCompleted ? "Complete the previous lesson first to unlock this one."
+              : trialActive && globalIndex >= 7 ? "This lesson is beyond the trial limit. Purchase the course for full access."
               : "Purchase this course or get Premium to access this lesson."}
           </p>
           <div className="flex flex-col gap-2">
@@ -340,7 +363,6 @@ const LessonViewerPage = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
-      {/* Main content */}
       <div className="flex-1 lg:w-3/4 overflow-auto">
         {/* Header */}
         <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border p-4 flex items-center gap-3">
@@ -367,13 +389,7 @@ const LessonViewerPage = () => {
                   title={lesson.title}
                 />
               ) : (
-                <video
-                  controls
-                  controlsList="nodownload"
-                  className="w-full h-full"
-                  src={lesson.file_url}
-                  onContextMenu={(e) => e.preventDefault()}
-                />
+                <video controls controlsList="nodownload" className="w-full h-full" src={lesson.file_url} onContextMenu={(e) => e.preventDefault()} />
               )}
             </div>
           ) : lesson.content_type === "pdf" && lesson.file_url ? (
@@ -387,8 +403,7 @@ const LessonViewerPage = () => {
           ) : lesson.content_type === "url" && lesson.file_url ? (
             <div className="p-6">
               <a href={lesson.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-lg mb-4">
-                <ExternalLink className="w-5 h-5" />
-                Open External Resource
+                <ExternalLink className="w-5 h-5" />Open External Resource
               </a>
               <iframe src={lesson.file_url} className="w-full h-[60vh] rounded-lg border border-border" title={lesson.title} />
             </div>
@@ -402,7 +417,7 @@ const LessonViewerPage = () => {
           ) : null}
         </div>
 
-        {/* Lesson text content */}
+        {/* Lesson content */}
         <div className="p-4 sm:p-6 max-w-3xl mx-auto">
           {lesson.content_text && (
             <div className="prose prose-invert max-w-none mb-8">
@@ -418,12 +433,11 @@ const LessonViewerPage = () => {
             </div>
           )}
 
-          {/* Progress / Actions */}
+          {/* Actions */}
           <div className="flex flex-wrap gap-3 mb-8">
             {canComplete && (
               <Button variant="hero" onClick={() => markComplete.mutate()} className="w-full sm:w-auto">
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Mark as Complete
+                <CheckCircle className="w-4 h-4 mr-1" />Mark as Complete
               </Button>
             )}
             {hasAssignments && !currentAssignmentsApproved && currentCompletion && (
@@ -443,15 +457,14 @@ const LessonViewerPage = () => {
           {assignments.length > 0 && (
             <div className="space-y-6">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <Paperclip className="w-5 h-5 text-primary" />
-                Assignments
+                <Paperclip className="w-5 h-5 text-primary" />Assignments
               </h3>
               {assignments.map((a: any) => {
                 const existingSub = mySubmissions.find((s: any) => s.assignment_id === a.id);
                 const subStatus = existingSub?.status;
                 const canResubmit = subStatus === "Rejected";
                 const assignFiles = selectedFiles[a.id] || [];
-                const isUploadingThis = submitting && uploadProgress > 0;
+                const assignPreviews = previewUrls[a.id] || [];
 
                 return (
                   <div key={a.id} className="glass-card p-4 sm:p-5 space-y-4">
@@ -472,7 +485,6 @@ const LessonViewerPage = () => {
                       )}
                     </div>
 
-                    {/* Existing submission feedback */}
                     {existingSub?.feedback && (
                       <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
                         <p className="text-xs font-medium text-accent mb-1">Instructor Feedback</p>
@@ -480,7 +492,6 @@ const LessonViewerPage = () => {
                       </div>
                     )}
 
-                    {/* Submit form */}
                     {(!existingSub || canResubmit) && (
                       <div className="space-y-4 pt-2 border-t border-border">
                         <Textarea
@@ -490,13 +501,11 @@ const LessonViewerPage = () => {
                           className="bg-secondary border-border text-sm min-h-[120px] text-base"
                         />
 
-                        {/* ── Mobile-friendly file upload area ── */}
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <Label className="text-xs text-muted-foreground">
                             Attach files (optional) — max {MAX_FILE_SIZE_MB}MB each
                           </Label>
 
-                          {/* Hidden native input — properly ref'd per assignment */}
                           <input
                             ref={(el) => { fileInputRefs.current[a.id] = el; }}
                             type="file"
@@ -506,7 +515,33 @@ const LessonViewerPage = () => {
                             onChange={(e) => handleFileChange(a.id, e)}
                           />
 
-                          {/* Large touch-friendly upload button */}
+                          {/* ✅ Image previews — shown before uploading */}
+                          {assignPreviews.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-muted-foreground">Preview — check your images before submitting:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {assignPreviews.map((url, i) => (
+                                  <div key={i} className="relative group">
+                                    <img
+                                      src={url}
+                                      alt={`Preview ${i + 1}`}
+                                      className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border-2 border-primary/40 shadow-sm"
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors" />
+                                    <span className="absolute bottom-1 right-1 bg-success rounded-full p-0.5 shadow">
+                                      <CheckCircle className="w-3 h-3 text-white" />
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="text-xs text-success flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                {assignPreviews.length} image{assignPreviews.length > 1 ? "s" : ""} selected — looks good? Tap Submit when ready.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Upload tap zone */}
                           <button
                             type="button"
                             onClick={() => fileInputRefs.current[a.id]?.click()}
@@ -520,25 +555,18 @@ const LessonViewerPage = () => {
                             <span className="text-sm font-medium text-muted-foreground">
                               {assignFiles.length > 0 ? "Change / Add More Files" : "Tap to select files or photos"}
                             </span>
-                            <span className="text-xs text-muted-foreground/70">
-                              Images, PDF, Word, ZIP
-                            </span>
+                            <span className="text-xs text-muted-foreground/70">Images, PDF, Word, ZIP</span>
                           </button>
 
-                          {/* Selected files list with remove buttons */}
+                          {/* Selected files list */}
                           {assignFiles.length > 0 && (
                             <div className="space-y-2 mt-2">
                               <p className="text-xs font-medium text-muted-foreground">{assignFiles.length} file{assignFiles.length > 1 ? "s" : ""} selected:</p>
                               {assignFiles.map((file, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20"
-                                >
+                                <div key={idx} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
                                   <FileText className="w-4 h-4 text-primary shrink-0" />
                                   <span className="text-xs flex-1 truncate">{file.name}</span>
-                                  <span className="text-xs text-muted-foreground shrink-0">
-                                    {(file.size / (1024 * 1024)).toFixed(1)}MB
-                                  </span>
+                                  <span className="text-xs text-muted-foreground shrink-0">{(file.size / (1024 * 1024)).toFixed(1)}MB</span>
                                   <button
                                     type="button"
                                     onClick={() => removeFile(a.id, idx)}
@@ -553,7 +581,7 @@ const LessonViewerPage = () => {
                           )}
                         </div>
 
-                        {/* Upload progress bar */}
+                        {/* Upload progress */}
                         {submitting && uploadProgress > 0 && (
                           <div className="space-y-1">
                             <div className="flex justify-between text-xs text-muted-foreground">
@@ -572,15 +600,9 @@ const LessonViewerPage = () => {
                           className="w-full sm:w-auto touch-manipulation"
                         >
                           {submitting ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              {uploadProgress > 0 ? `Uploading ${uploadProgress}%...` : "Submitting..."}
-                            </>
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{uploadProgress > 0 ? `Uploading ${uploadProgress}%...` : "Submitting..."}</>
                           ) : (
-                            <>
-                              <Send className="w-4 h-4 mr-2" />
-                              {canResubmit ? "Resubmit Assignment" : "Submit Assignment"}
-                            </>
+                            <><Send className="w-4 h-4 mr-2" />{canResubmit ? "Resubmit Assignment" : "Submit Assignment"}</>
                           )}
                         </Button>
                       </div>
@@ -588,8 +610,7 @@ const LessonViewerPage = () => {
 
                     {existingSub && !canResubmit && subStatus !== "Approved" && (
                       <p className="text-sm text-accent flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        Your submission is under review
+                        <AlertCircle className="w-4 h-4 shrink-0" />Your submission is under review
                       </p>
                     )}
                   </div>
@@ -620,12 +641,7 @@ const LessonViewerPage = () => {
                   const idx = allCourseLessons.findIndex((al: any) => al.id === l.id);
                   const completed = allCompletions.includes(l.id);
                   const prevApproved = idx === 0 || (allCompletions.includes(allCourseLessons[idx - 1]?.id) && isLessonAssignmentApproved(allCourseLessons[idx - 1]?.id));
-                  const accessible = isAdmin || (
-                    hasCourseAccess(courseId) &&
-                    canAccessLesson(courseId, idx) &&
-                    prevApproved
-                  );
-
+                  const accessible = isAdmin || (hasCourseAccess(courseId) && canAccessLesson(courseId, idx) && prevApproved);
                   return (
                     <div
                       key={l.id}
