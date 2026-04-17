@@ -22,9 +22,9 @@ import AdminStudentsPage from "./pages/AdminStudentsPage.tsx";
 import AdminSubmissionsPage from "./pages/AdminSubmissionsPage.tsx";
 import AdminAnnouncementsPage from "./pages/AdminAnnouncementsPage.tsx";
 import AdminSettingsPage from "./pages/AdminSettingsPage.tsx";
-import NotificationsPage from "./pages/NotificationsPage.tsx";
 import AdminProjectsPage from "./pages/AdminProjectsPage.tsx";
 import AdminCertificatesPage from "./pages/AdminCertificatesPage.tsx";
+import AdminEnrollmentsPage from "./pages/AdminEnrollmentsPage.tsx";
 import SubscribePage from "./pages/SubscribePage.tsx";
 import PortfolioPage from "./pages/PortfolioPage.tsx";
 import DiscussionGroupsPage from "./pages/DiscussionGroupsPage.tsx";
@@ -59,11 +59,11 @@ const App = () => (
             <Route path="/discussions/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
             <Route path="/dashboard/settings" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
             <Route path="/dashboard/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
-            <Route path="/dashboard/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <Route path="/dashboard/*" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/courses" element={<AdminRoute><AdminCoursesPage /></AdminRoute>} />
             <Route path="/admin/students" element={<AdminRoute><AdminStudentsPage /></AdminRoute>} />
+            <Route path="/admin/enrollments" element={<AdminRoute><AdminEnrollmentsPage /></AdminRoute>} />
             <Route path="/admin/submissions" element={<AdminRoute><AdminSubmissionsPage /></AdminRoute>} />
             <Route path="/admin/announcements" element={<AdminRoute><AdminAnnouncementsPage /></AdminRoute>} />
             <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
