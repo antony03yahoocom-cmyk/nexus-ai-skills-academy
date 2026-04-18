@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import AdminSidebar from "@/components/dashboard/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,44 @@ import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit, ChevronDown, ChevronRight, Upload, Save, Paperclip } from "lucide-react";
+import {
+  Plus, Trash2, Edit, ChevronDown, ChevronRight, Save, Paperclip,
+  Video, FileText, Image as ImageIcon, Link as LinkIcon, BookOpen, Upload, X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 
 const CATEGORIES = ["AI", "Graphic Design", "Data Analysis", "Programming", "Web Development", "Machine Learning"];
+
+const CONTENT_TYPES = [
+  { value: "video",  label: "Video",      icon: Video,     color: "text-primary",     bg: "bg-primary/10",     accept: "video/*",  hint: "MP4, MOV, AVI — or paste a YouTube/Vimeo URL below" },
+  { value: "pdf",    label: "PDF",        icon: FileText,  color: "text-accent",      bg: "bg-accent/10",      accept: ".pdf",     hint: "Upload a PDF document" },
+  { value: "image",  label: "Image",      icon: ImageIcon, color: "text-success",     bg: "bg-success/10",     accept: "image/*",  hint: "JPG, PNG, GIF, WebP" },
+  { value: "text",   label: "Notes/Text", icon: BookOpen,  color: "text-orange-400",  bg: "bg-orange-400/10",  accept: "",         hint: "Text notes — no file needed, write content below" },
+  { value: "url",    label: "External Link", icon: LinkIcon, color: "text-purple-400", bg: "bg-purple-400/10", accept: "",         hint: "Link to an external resource or embed" },
+];
+
+const ContentTypeButton = ({ type, selected, onClick }: { type: typeof CONTENT_TYPES[0]; selected: boolean; onClick: () => void }) => {
+  const Icon = type.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border-2 text-xs font-medium transition-all duration-150 touch-manipulation ${
+        selected
+          ? `border-current ${type.color} ${type.bg}`
+          : "border-border text-muted-foreground hover:border-border/80 hover:bg-secondary/50"
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      {type.label}
+    </button>
+  );
+};
+
+const isYouTubeUrl = (url: string) =>
+  url.includes("youtube.com") || url.includes("youtu.be");
 
 const AdminCoursesPage = () => {
   const queryClient = useQueryClient();
@@ -22,44 +55,38 @@ const AdminCoursesPage = () => {
   const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [showModuleForm, setShowModuleForm] = useState<string | null>(null);
-  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video" as string, content_text: "", content_url: "", module_id: "" });
+  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
   const [showLessonForm, setShowLessonForm] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<any>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
-  // Assignment form
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [editFileName, setEditFileName] = useState("");
   const [showAssignmentForm, setShowAssignmentForm] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState({ title: "", description: "", objective: "", task: "", deliverable: "", lesson_id: "" });
 
+  // Per-form refs so there are no shared IDs
+  const createFileRef = useRef<HTMLInputElement>(null);
+  const editFileRef = useRef<HTMLInputElement>(null);
+
   const { data: courses = [] } = useQuery({
     queryKey: ["admin-courses-full"],
-    queryFn: async () => {
-      const { data } = await supabase.from("courses").select("*").order("created_at", { ascending: false });
-      return data ?? [];
-    },
+    queryFn: async () => { const { data } = await supabase.from("courses").select("*").order("created_at", { ascending: false }); return data ?? []; },
   });
 
   const { data: modules = [] } = useQuery({
     queryKey: ["admin-modules"],
-    queryFn: async () => {
-      const { data } = await supabase.from("modules").select("*").order("sort_order");
-      return data ?? [];
-    },
+    queryFn: async () => { const { data } = await supabase.from("modules").select("*").order("sort_order"); return data ?? []; },
   });
 
   const { data: lessons = [] } = useQuery({
     queryKey: ["admin-lessons"],
-    queryFn: async () => {
-      const { data } = await supabase.from("lessons").select("*").order("sort_order");
-      return data ?? [];
-    },
+    queryFn: async () => { const { data } = await supabase.from("lessons").select("*").order("sort_order"); return data ?? []; },
   });
 
   const { data: assignments = [] } = useQuery({
     queryKey: ["admin-assignments"],
-    queryFn: async () => {
-      const { data } = await supabase.from("assignments").select("*");
-      return data ?? [];
-    },
+    queryFn: async () => { const { data } = await supabase.from("assignments").select("*"); return data ?? []; },
   });
 
   const invalidateAll = () => {
@@ -69,6 +96,7 @@ const AdminCoursesPage = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
   };
 
+  // ── Course mutations ──────────────────────────────────────────────
   const createCourse = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("courses").insert({ ...courseForm, price: courseForm.price || 0 } as any);
@@ -93,6 +121,7 @@ const AdminCoursesPage = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // ── Module mutations ──────────────────────────────────────────────
   const createModule = useMutation({
     mutationFn: async () => {
       const courseModules = modules.filter((m: any) => m.course_id === moduleForm.course_id);
@@ -109,35 +138,58 @@ const AdminCoursesPage = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const handleFileUpload = async (file: File) => {
+  // ── File upload ───────────────────────────────────────────────────
+  const handleFileUpload = async (file: File, contentType: string): Promise<string | null> => {
     setUploadingFile(true);
-    const path = `lessons/${Date.now()}_${file.name}`;
-    const { error } = await supabase.storage.from("course-content").upload(path, file);
-    if (error) { toast.error("Upload failed: " + error.message); setUploadingFile(false); return null; }
+    setUploadProgress(10);
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const folder = contentType === "video" ? "videos" : contentType === "pdf" ? "pdfs" : contentType === "image" ? "images" : "files";
+    const path = `lessons/${folder}/${Date.now()}_${safeFileName}`;
+
+    const { error } = await supabase.storage.from("course-content").upload(path, file, { cacheControl: "3600", upsert: false });
+    setUploadProgress(80);
+    if (error) {
+      toast.error("Upload failed: " + error.message);
+      setUploadingFile(false);
+      setUploadProgress(0);
+      return null;
+    }
     const { data } = supabase.storage.from("course-content").getPublicUrl(path);
-    setUploadingFile(false);
+    setUploadProgress(100);
+    setTimeout(() => { setUploadingFile(false); setUploadProgress(0); }, 600);
     return data?.publicUrl || null;
   };
 
+  // ── Lesson mutations ──────────────────────────────────────────────
   const createLesson = useMutation({
     mutationFn: async (fileUrl?: string) => {
       const moduleLessons = lessons.filter((l: any) => l.module_id === lessonForm.module_id);
       const finalUrl = fileUrl || lessonForm.content_url || null;
       const { error } = await supabase.from("lessons").insert({
-        title: lessonForm.title, content_type: lessonForm.content_type,
-        content_text: lessonForm.content_text || null, file_url: finalUrl,
-        module_id: lessonForm.module_id, sort_order: moduleLessons.length,
+        title: lessonForm.title,
+        content_type: lessonForm.content_type,
+        content_text: lessonForm.content_text || null,
+        file_url: finalUrl,
+        module_id: lessonForm.module_id,
+        sort_order: moduleLessons.length,
       });
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Lesson created!"); setShowLessonForm(null); setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" }); },
+    onSuccess: () => {
+      invalidateAll();
+      toast.success("Lesson created!");
+      setShowLessonForm(null);
+      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+      setSelectedFileName("");
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
   const updateLesson = useMutation({
     mutationFn: async ({ id, fileUrl }: { id: string; fileUrl?: string }) => {
       const updateData: any = {
-        title: lessonForm.title, content_type: lessonForm.content_type,
+        title: lessonForm.title,
+        content_type: lessonForm.content_type,
         content_text: lessonForm.content_text || null,
       };
       if (fileUrl) updateData.file_url = fileUrl;
@@ -145,7 +197,13 @@ const AdminCoursesPage = () => {
       const { error } = await supabase.from("lessons").update(updateData).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Lesson updated!"); setEditingLesson(null); setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" }); },
+    onSuccess: () => {
+      invalidateAll();
+      toast.success("Lesson updated!");
+      setEditingLesson(null);
+      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+      setEditFileName("");
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -155,10 +213,12 @@ const AdminCoursesPage = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // ── Assignment mutations ──────────────────────────────────────────
   const createAssignment = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("assignments").insert({
-        lesson_id: assignForm.lesson_id, title: assignForm.title,
+        lesson_id: assignForm.lesson_id,
+        title: assignForm.title,
         description: assignForm.description || null,
         objective: assignForm.objective || null,
         task: assignForm.task || null,
@@ -166,7 +226,12 @@ const AdminCoursesPage = () => {
       } as any);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Assignment created!"); setShowAssignmentForm(null); setAssignForm({ title: "", description: "", objective: "", task: "", deliverable: "", lesson_id: "" }); },
+    onSuccess: () => {
+      invalidateAll();
+      toast.success("Assignment created!");
+      setShowAssignmentForm(null);
+      setAssignForm({ title: "", description: "", objective: "", task: "", deliverable: "", lesson_id: "" });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -176,22 +241,25 @@ const AdminCoursesPage = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // ── Handlers ──────────────────────────────────────────────────────
   const handleCreateLesson = async () => {
-    const fileInput = document.getElementById("lesson-file") as HTMLInputElement;
     let fileUrl: string | undefined;
-    if (fileInput?.files?.[0]) {
-      const url = await handleFileUpload(fileInput.files[0]);
-      if (url) fileUrl = url; else return;
+    const needsFile = ["video", "pdf", "image"].includes(lessonForm.content_type);
+    if (needsFile && createFileRef.current?.files?.[0]) {
+      const url = await handleFileUpload(createFileRef.current.files[0], lessonForm.content_type);
+      if (!url) return; // upload failed — stop
+      fileUrl = url;
     }
     createLesson.mutate(fileUrl);
   };
 
   const handleUpdateLesson = async () => {
-    const fileInput = document.getElementById("lesson-file-edit") as HTMLInputElement;
     let fileUrl: string | undefined;
-    if (fileInput?.files?.[0]) {
-      const url = await handleFileUpload(fileInput.files[0]);
-      if (url) fileUrl = url; else return;
+    const needsFile = ["video", "pdf", "image"].includes(lessonForm.content_type);
+    if (needsFile && editFileRef.current?.files?.[0]) {
+      const url = await handleFileUpload(editFileRef.current.files[0], lessonForm.content_type);
+      if (!url) return;
+      fileUrl = url;
     }
     updateLesson.mutate({ id: editingLesson.id, fileUrl });
   };
@@ -204,8 +272,147 @@ const AdminCoursesPage = () => {
   const startEditLesson = (lesson: any) => {
     setEditingLesson(lesson);
     setLessonForm({ title: lesson.title, content_type: lesson.content_type, content_text: lesson.content_text || "", content_url: lesson.file_url || "", module_id: lesson.module_id });
+    setEditFileName("");
   };
 
+  const getTypeInfo = (val: string) => CONTENT_TYPES.find((t) => t.value === val) || CONTENT_TYPES[0];
+
+  const needsFileUpload = (t: string) => ["video", "pdf", "image"].includes(t);
+  const needsUrlField = (t: string) => ["url", "video"].includes(t); // video can also be a URL (YouTube)
+
+  // ── Shared lesson form body (used both for create and edit) ───────
+  const renderLessonFormBody = (isEdit: boolean) => {
+    const typeInfo = getTypeInfo(lessonForm.content_type);
+    const fileRef = isEdit ? editFileRef : createFileRef;
+    const fileNameState = isEdit ? editFileName : selectedFileName;
+    const setFileNameState = isEdit ? setEditFileName : setSelectedFileName;
+
+    return (
+      <div className="space-y-4">
+        {/* Title */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">Lesson Title *</Label>
+          <Input
+            placeholder="e.g. Introduction to Prompt Engineering"
+            value={lessonForm.title}
+            onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
+            className="bg-secondary border-border"
+          />
+        </div>
+
+        {/* Content type selector */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">Content Type *</Label>
+          <div className="flex flex-wrap gap-2">
+            {CONTENT_TYPES.map((t) => (
+              <ContentTypeButton
+                key={t.value}
+                type={t}
+                selected={lessonForm.content_type === t.value}
+                onClick={() => {
+                  setLessonForm({ ...lessonForm, content_type: t.value });
+                  setFileNameState("");
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">{typeInfo.hint}</p>
+        </div>
+
+        {/* File upload — video, pdf, image */}
+        {needsFileUpload(lessonForm.content_type) && (
+          <div className="space-y-2">
+            <Label className="text-xs">
+              {isEdit ? "Replace file (optional)" : "Upload file"}
+            </Label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={typeInfo.accept}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                setFileNameState(f ? f.name : "");
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 bg-secondary/50 hover:bg-secondary transition-all text-sm touch-manipulation"
+            >
+              <Upload className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground truncate">
+                {fileNameState || `Tap to select ${typeInfo.label.toLowerCase()} file`}
+              </span>
+              {fileNameState && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFileNameState(""); if (fileRef.current) fileRef.current.value = ""; }}
+                  className="ml-auto shrink-0 p-1 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </button>
+            {isEdit && lessonForm.content_url && !fileNameState && (
+              <p className="text-xs text-muted-foreground">
+                Current: <a href={lessonForm.content_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View existing file</a>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* URL field — YouTube/external URL */}
+        {needsUrlField(lessonForm.content_type) && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              {lessonForm.content_type === "video" ? "Or paste YouTube / Vimeo URL" : "External URL *"}
+            </Label>
+            <Input
+              placeholder={lessonForm.content_type === "video" ? "https://youtube.com/watch?v=..." : "https://..."}
+              value={lessonForm.content_url}
+              onChange={(e) => setLessonForm({ ...lessonForm, content_url: e.target.value })}
+              className="bg-secondary border-border"
+            />
+            {lessonForm.content_type === "video" && lessonForm.content_url && isYouTubeUrl(lessonForm.content_url) && (
+              <p className="text-xs text-success flex items-center gap-1">✓ YouTube URL detected — will embed automatically</p>
+            )}
+          </div>
+        )}
+
+        {/* Text content / notes */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">
+            {lessonForm.content_type === "text" ? "Lesson Notes / Content *" : "Supplementary notes (shown below media, optional)"}
+          </Label>
+          <Textarea
+            placeholder={
+              lessonForm.content_type === "text"
+                ? "Write your lesson notes here..."
+                : "Add written explanations, key points, or references..."
+            }
+            value={lessonForm.content_text}
+            onChange={(e) => setLessonForm({ ...lessonForm, content_text: e.target.value })}
+            className="bg-secondary border-border"
+            rows={lessonForm.content_type === "text" ? 8 : 4}
+          />
+        </div>
+
+        {/* Upload progress */}
+        {uploadingFile && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Uploading...</span><span>{uploadProgress}%</span>
+            </div>
+            <Progress value={uploadProgress} className="h-1.5 bg-secondary" />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex">
       <AdminSidebar />
@@ -214,14 +421,14 @@ const AdminCoursesPage = () => {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold">Manage Courses</h1>
-              <p className="text-muted-foreground">Create and manage course content, modules, lessons & assignments.</p>
+              <p className="text-muted-foreground">Create and manage course content, modules, lessons &amp; assignments.</p>
             </div>
             <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); }}>
               <Plus className="w-4 h-4 mr-1" /> New Course
             </Button>
           </div>
 
-          {/* Course Form */}
+          {/* ── Course Form ── */}
           {(showCourseForm || editingCourse) && (
             <div className="glass-card p-6 mb-8">
               <h3 className="font-semibold mb-4">{editingCourse ? "Edit Course" : "New Course"}</h3>
@@ -263,51 +470,30 @@ const AdminCoursesPage = () => {
               </div>
               <div className="flex gap-2 mt-4">
                 <Button variant="hero" onClick={() => editingCourse ? updateCourse.mutate() : createCourse.mutate()}>
-                  {editingCourse ? "Update" : "Create"}
+                  {editingCourse ? "Update Course" : "Create Course"}
                 </Button>
                 <Button variant="ghost" onClick={() => { setShowCourseForm(false); setEditingCourse(null); }}>Cancel</Button>
               </div>
             </div>
           )}
 
-          {/* Edit Lesson Modal */}
+          {/* ── Edit Lesson Inline Panel ── */}
           {editingLesson && (
             <div className="glass-card p-6 mb-8 border-primary/30">
-              <h3 className="font-semibold mb-4">Edit Lesson: {editingLesson.title}</h3>
-              <div className="space-y-4">
-                <Input placeholder="Lesson title" value={lessonForm.title} onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })} className="bg-secondary border-border" />
-                <Select value={lessonForm.content_type} onValueChange={(v) => setLessonForm({ ...lessonForm, content_type: v })}>
-                  <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="video">Video</SelectItem>
-                    <SelectItem value="pdf">PDF</SelectItem>
-                    <SelectItem value="text">Text</SelectItem>
-                    <SelectItem value="image">Image</SelectItem>
-                    <SelectItem value="url">External URL</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Textarea placeholder="Lesson text content (shown below video/media)" value={lessonForm.content_text} onChange={(e) => setLessonForm({ ...lessonForm, content_text: e.target.value })} className="bg-secondary border-border" rows={4} />
-                {lessonForm.content_type === "url" && (
-                  <Input placeholder="https://..." value={lessonForm.content_url} onChange={(e) => setLessonForm({ ...lessonForm, content_url: e.target.value })} className="bg-secondary border-border" />
-                )}
-                {(lessonForm.content_type === "video" || lessonForm.content_type === "pdf" || lessonForm.content_type === "image") && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Replace file (optional)</Label>
-                    <Input id="lesson-file-edit" type="file" accept={lessonForm.content_type === "video" ? "video/*" : lessonForm.content_type === "pdf" ? ".pdf" : "image/*"} className="bg-secondary border-border" />
-                    {lessonForm.content_url && <p className="text-xs text-muted-foreground">Current: <a href={lessonForm.content_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View file</a></p>}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Button variant="hero" onClick={handleUpdateLesson} disabled={uploadingFile}>
-                    <Save className="w-4 h-4 mr-1" /> {uploadingFile ? "Uploading..." : "Save Changes"}
-                  </Button>
-                  <Button variant="ghost" onClick={() => setEditingLesson(null)}>Cancel</Button>
-                </div>
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Edit className="w-4 h-4 text-primary" /> Edit Lesson: {editingLesson.title}
+              </h3>
+              {renderLessonFormBody(true)}
+              <div className="flex gap-2 mt-4">
+                <Button variant="hero" onClick={handleUpdateLesson} disabled={uploadingFile || !lessonForm.title}>
+                  <Save className="w-4 h-4 mr-1" /> {uploadingFile ? "Uploading..." : "Save Changes"}
+                </Button>
+                <Button variant="ghost" onClick={() => { setEditingLesson(null); setEditFileName(""); }}>Cancel</Button>
               </div>
             </div>
           )}
 
-          {/* Course List */}
+          {/* ── Course List ── */}
           <div className="space-y-4">
             {courses.map((course: any) => {
               const courseModules = modules.filter((m: any) => m.course_id === course.id);
@@ -320,7 +506,7 @@ const AdminCoursesPage = () => {
                       {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       <div>
                         <h3 className="font-semibold">{course.title}</h3>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <Badge variant="secondary" className="text-xs">{course.category}</Badge>
                           <Badge className={course.is_published ? "bg-success/10 text-success border-success/20" : "bg-secondary text-muted-foreground"}>
                             {course.is_published ? "Published" : "Draft"}
@@ -348,7 +534,7 @@ const AdminCoursesPage = () => {
                               <div className="flex items-center gap-2">
                                 {isModExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                 <span className="text-sm font-medium">{mod.title}</span>
-                                <span className="text-xs text-muted-foreground">({modLessons.length} lessons)</span>
+                                <span className="text-xs text-muted-foreground">({modLessons.length} lesson{modLessons.length !== 1 ? "s" : ""})</span>
                               </div>
                               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); deleteModule.mutate(mod.id); }}>
                                 <Trash2 className="w-3 h-3 text-destructive" />
@@ -359,15 +545,21 @@ const AdminCoursesPage = () => {
                               <div className="px-3 pb-3 space-y-2">
                                 {modLessons.map((lesson: any) => {
                                   const lessonAssigns = assignments.filter((a: any) => a.lesson_id === lesson.id);
+                                  const typeInfo = getTypeInfo(lesson.content_type);
+                                  const TypeIcon = typeInfo.icon;
                                   return (
-                                    <div key={lesson.id} className="bg-background/50 rounded p-3 space-y-2">
+                                    <div key={lesson.id} className="bg-background/50 rounded-lg p-3 space-y-2">
                                       <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant="secondary" className="text-xs">{lesson.content_type}</Badge>
-                                          <span className="text-sm">{lesson.title}</span>
-                                          {lesson.file_url && <a href={lesson.file_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">📎</a>}
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                          <div className={`w-6 h-6 rounded-md ${typeInfo.bg} flex items-center justify-center shrink-0`}>
+                                            <TypeIcon className={`w-3.5 h-3.5 ${typeInfo.color}`} />
+                                          </div>
+                                          <span className="text-sm truncate">{lesson.title}</span>
+                                          {lesson.file_url && (
+                                            <a href={lesson.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline shrink-0 text-xs">View</a>
+                                          )}
                                         </div>
-                                        <div className="flex gap-1">
+                                        <div className="flex gap-1 shrink-0">
                                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditLesson(lesson)}>
                                             <Edit className="w-3 h-3" />
                                           </Button>
@@ -377,7 +569,7 @@ const AdminCoursesPage = () => {
                                         </div>
                                       </div>
 
-                                      {/* Assignments for this lesson */}
+                                      {/* Assignments */}
                                       {lessonAssigns.length > 0 && (
                                         <div className="pl-4 space-y-1">
                                           {lessonAssigns.map((a: any) => (
@@ -396,7 +588,7 @@ const AdminCoursesPage = () => {
                                       {/* Add Assignment */}
                                       {showAssignmentForm === lesson.id ? (
                                         <div className="pl-4 space-y-2 pt-2 border-t border-border/30">
-                                          <Input placeholder="Assignment title" value={assignForm.title} onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value, lesson_id: lesson.id })} className="bg-secondary border-border text-xs h-8" />
+                                          <Input placeholder="Assignment title *" value={assignForm.title} onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value, lesson_id: lesson.id })} className="bg-secondary border-border text-xs h-8" />
                                           <Input placeholder="Objective" value={assignForm.objective} onChange={(e) => setAssignForm({ ...assignForm, objective: e.target.value })} className="bg-secondary border-border text-xs h-8" />
                                           <Input placeholder="Task" value={assignForm.task} onChange={(e) => setAssignForm({ ...assignForm, task: e.target.value })} className="bg-secondary border-border text-xs h-8" />
                                           <Input placeholder="Deliverable" value={assignForm.deliverable} onChange={(e) => setAssignForm({ ...assignForm, deliverable: e.target.value })} className="bg-secondary border-border text-xs h-8" />
@@ -417,38 +609,29 @@ const AdminCoursesPage = () => {
 
                                 {/* Add Lesson */}
                                 {showLessonForm === mod.id ? (
-                                  <div className="bg-background/50 rounded p-3 space-y-3">
-                                    <Input placeholder="Lesson title" value={lessonForm.title} onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value, module_id: mod.id })} className="bg-secondary border-border text-sm" />
-                                    <Select value={lessonForm.content_type} onValueChange={(v) => setLessonForm({ ...lessonForm, content_type: v })}>
-                                      <SelectTrigger className="bg-secondary border-border text-sm"><SelectValue /></SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="video">Video</SelectItem>
-                                        <SelectItem value="pdf">PDF</SelectItem>
-                                        <SelectItem value="text">Text</SelectItem>
-                                        <SelectItem value="image">Image</SelectItem>
-                                        <SelectItem value="url">External URL</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <Textarea placeholder="Lesson text content (shown below media)" value={lessonForm.content_text} onChange={(e) => setLessonForm({ ...lessonForm, content_text: e.target.value })} className="bg-secondary border-border text-sm" rows={3} />
-                                    {lessonForm.content_type === "url" && (
-                                      <Input placeholder="https://example.com/resource" value={lessonForm.content_url} onChange={(e) => setLessonForm({ ...lessonForm, content_url: e.target.value })} className="bg-secondary border-border text-sm" />
-                                    )}
-                                    {(lessonForm.content_type === "video" || lessonForm.content_type === "pdf" || lessonForm.content_type === "image") && (
-                                      <div className="space-y-1">
-                                        <Label className="text-xs">Upload or paste URL</Label>
-                                        <Input id="lesson-file" type="file" accept={lessonForm.content_type === "video" ? "video/*" : lessonForm.content_type === "pdf" ? ".pdf" : "image/*"} className="bg-secondary border-border text-sm" />
-                                        <Input placeholder="Or paste URL..." value={lessonForm.content_url} onChange={(e) => setLessonForm({ ...lessonForm, content_url: e.target.value })} className="bg-secondary border-border text-xs" />
-                                      </div>
-                                    )}
-                                    <div className="flex gap-2">
-                                      <Button size="sm" variant="hero" onClick={handleCreateLesson} disabled={uploadingFile || !lessonForm.title}>
+                                  <div className="bg-background/50 rounded-lg p-4 space-y-1">
+                                    <h4 className="text-sm font-medium mb-3">New Lesson</h4>
+                                    {renderLessonFormBody(false)}
+                                    <div className="flex gap-2 pt-2">
+                                      <Button
+                                        size="sm" variant="hero"
+                                        onClick={() => { setLessonForm({ ...lessonForm, module_id: mod.id }); handleCreateLesson(); }}
+                                        disabled={uploadingFile || !lessonForm.title}
+                                      >
                                         {uploadingFile ? "Uploading..." : "Add Lesson"}
                                       </Button>
-                                      <Button size="sm" variant="ghost" onClick={() => setShowLessonForm(null)}>Cancel</Button>
+                                      <Button size="sm" variant="ghost" onClick={() => { setShowLessonForm(null); setSelectedFileName(""); }}>Cancel</Button>
                                     </div>
                                   </div>
                                 ) : (
-                                  <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setShowLessonForm(mod.id); setLessonForm({ ...lessonForm, module_id: mod.id }); }}>
+                                  <Button
+                                    size="sm" variant="ghost" className="text-xs"
+                                    onClick={() => {
+                                      setShowLessonForm(mod.id);
+                                      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: mod.id });
+                                      setSelectedFileName("");
+                                    }}
+                                  >
                                     <Plus className="w-3 h-3 mr-1" /> Add Lesson
                                   </Button>
                                 )}
@@ -477,6 +660,14 @@ const AdminCoursesPage = () => {
                 </div>
               );
             })}
+
+            {courses.length === 0 && (
+              <div className="glass-card p-12 text-center">
+                <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">No courses yet. Create your first course to get started.</p>
+                <Button variant="hero" onClick={() => setShowCourseForm(true)}><Plus className="w-4 h-4 mr-1" /> Create First Course</Button>
+              </div>
+            )}
           </div>
         </div>
       </main>
