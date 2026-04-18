@@ -41,22 +41,24 @@ Deno.serve(async (req) => {
     }
 
     // Fetch profile
-    const { data: profile } = await adminClient.from("profiles").select("*").eq("user_id", user.id).single();
+    const { data: profile } = await adminClient
+      .from("profiles").select("*").eq("user_id", user.id).single();
     if (!profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch course to check price
-    const { data: course } = await adminClient.from("courses").select("*").eq("id", course_id).single();
+    // Fetch course (needed to check price)
+    const { data: course } = await adminClient
+      .from("courses").select("*").eq("id", course_id).single();
     if (!course) {
       return new Response(JSON.stringify({ error: "Course not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ✅ FIX: Allow certificates for: premium users, paid course purchasers, OR free courses (price=0)
+    // ✅ Allow: premium users, paid purchasers, OR free courses (price = 0 or null)
     const isFree = (course.price ?? 0) === 0;
     if (!profile.is_premium && !isFree) {
       const { data: purchase } = await adminClient
@@ -68,9 +70,10 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!purchase) {
-        return new Response(JSON.stringify({ error: "You must purchase this course before receiving a certificate" }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "You must purchase this course before receiving a certificate" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
@@ -83,13 +86,15 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!enrollment) {
-      return new Response(JSON.stringify({ error: "You are not enrolled in this course" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "You are not enrolled in this course" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Verify all lessons completed
-    const { data: modules } = await adminClient.from("modules").select("id").eq("course_id", course_id);
+    const { data: modules } = await adminClient
+      .from("modules").select("id").eq("course_id", course_id);
     const moduleIds = modules?.map((m: any) => m.id) ?? [];
 
     if (moduleIds.length === 0) {
@@ -98,18 +103,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: allLessons } = await adminClient.from("lessons").select("id").in("module_id", moduleIds);
-    const { data: completions } = await adminClient.from("lesson_completions").select("lesson_id").eq("user_id", user.id);
+    const { data: allLessons } = await adminClient
+      .from("lessons").select("id").in("module_id", moduleIds);
+    const { data: completions } = await adminClient
+      .from("lesson_completions").select("lesson_id").eq("user_id", user.id);
 
     const completedIds = new Set(completions?.map((c: any) => c.lesson_id) ?? []);
     const totalLessons = allLessons?.length ?? 0;
-    const allCompleted = totalLessons === 0 || (allLessons?.every((l: any) => completedIds.has(l.id)) ?? false);
+
+    // Count how many of THIS course's lessons are completed
+    const courseCompletedCount = allLessons?.filter((l: any) => completedIds.has(l.id)).length ?? 0;
+    const allCompleted = totalLessons === 0 || courseCompletedCount >= totalLessons;
 
     if (!allCompleted) {
       return new Response(
         JSON.stringify({
-          error: `Not all lessons completed. You have completed ${completedIds.size} of ${totalLessons} lessons.`,
-          completed: completedIds.size,
+          error: `Not all lessons completed. You have completed ${courseCompletedCount} of ${totalLessons} lessons.`,
+          completed: courseCompletedCount,
           total: totalLessons,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -132,9 +142,12 @@ Deno.serve(async (req) => {
     }
 
     const certId = crypto.randomUUID();
-    const completionDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const completionDate = new Date().toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric",
+    });
     const escapeXml = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+       .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 
     const studentName = escapeXml(profile.full_name || "Student");
     const courseName = escapeXml(course.title);
@@ -169,7 +182,7 @@ Deno.serve(async (req) => {
   <text x="500" y="550" text-anchor="middle" fill="#64748b" font-family="Arial,sans-serif" font-size="10">Date: ${completionDate}</text>
 </svg>`;
 
-    // ✅ FIX: Try storage upload — non-fatal if it fails
+    // ✅ Storage upload is non-fatal — certificate is saved even if upload fails
     let certificateLink: string | null = null;
     try {
       const svgBlob = new Blob([svgCert], { type: "image/svg+xml" });
@@ -180,42 +193,48 @@ Deno.serve(async (req) => {
         .upload(filePath, svgBlob, { contentType: "image/svg+xml", upsert: false });
 
       if (!uploadError) {
-        // ✅ FIX: Use getPublicUrl (no expiry) instead of createSignedUrl (expires)
-        const { data: urlData } = adminClient.storage.from("certificates").getPublicUrl(filePath);
+        const { data: urlData } = adminClient.storage
+          .from("certificates")
+          .getPublicUrl(filePath);
         certificateLink = urlData?.publicUrl || null;
       } else {
-        console.error("Storage upload failed:", uploadError.message);
-        // Continue without a storage link — the certificate record will still be created
+        console.error("Storage upload failed (non-fatal):", uploadError.message);
       }
     } catch (storageErr) {
-      console.error("Storage error:", storageErr);
-      // Non-fatal: proceed to create DB record
+      console.error("Storage error (non-fatal):", storageErr);
     }
 
-    // ✅ Always create the certificate record in the DB regardless of storage outcome
-    const { data: cert, error: insertError } = await adminClient.from("certificates").insert({
-      id: certId,
-      student_id: user.id,
-      course_id,
-      certificate_link: certificateLink,
-      status: "Issued",
-      issued_date: new Date().toISOString().split("T")[0],
-    }).select().single();
+    // ✅ Always create the DB record regardless of storage outcome
+    const { data: cert, error: insertError } = await adminClient
+      .from("certificates")
+      .insert({
+        id: certId,
+        student_id: user.id,
+        course_id,
+        certificate_link: certificateLink,
+        status: "Issued",
+        issued_date: new Date().toISOString().split("T")[0],
+      })
+      .select()
+      .single();
 
     if (insertError) {
       console.error("Certificate insert error:", insertError);
-      return new Response(JSON.stringify({ error: "Failed to save certificate record: " + insertError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Failed to save certificate: " + insertError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ certificate: cert }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (err) {
     console.error("generate-certificate error:", err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "An unexpected error occurred" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : "An unexpected error occurred" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
