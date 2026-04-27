@@ -210,23 +210,23 @@ const StudentCertificatesPage = () => {
                           <Share2 className="w-4 h-4 mr-1" /> Share
                         </Button>
                         {/* WhatsApp */}
-                        
-                          href={`https://wa.me/?text=${encodeURIComponent(`🎓 I just earned my certificate in "${courseName}" from NEXUS AI Academy! ${cert.certificate_link}`)}`}
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent("🎓 I just earned my certificate in " + courseName + " from NEXUS AI Academy! " + cert.certificate_link)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-colors text-xs font-medium"
                         >
                           💬 WhatsApp
                         </a>
-                       {/* LinkedIn */}
-<a
-  href={`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(cert.certificate_link)}&title=${encodeURIComponent("I earned a certificate in " + courseName)}&summary=${encodeURIComponent("Completed at NEXUS AI Skills Academy — Africa's premier online learning platform.")}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0A66C2]/10 text-[#0A66C2] border border-[#0A66C2]/30 hover:bg-[#0A66C2]/20 transition-colors text-sm"
->
-  in LinkedIn
-</a>
+                        {/* LinkedIn */}
+                        <a
+                          href={`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(cert.certificate_link)}&title=${encodeURIComponent("I earned a certificate in " + courseName)}&summary=${encodeURIComponent("Completed at NEXUS AI Skills Academy — Africa's premier online learning platform.")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0A66C2]/10 text-[#0A66C2] border border-[#0A66C2]/30 hover:bg-[#0A66C2]/20 transition-colors text-xs font-medium"
+                        >
+                          in LinkedIn
+                        </a>
                       </>
                     ) : (
                       <Badge className="bg-secondary text-muted-foreground text-xs">
