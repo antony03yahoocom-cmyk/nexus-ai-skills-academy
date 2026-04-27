@@ -218,15 +218,15 @@ const StudentCertificatesPage = () => {
                         >
                           💬 WhatsApp
                         </a>
-                        {/* LinkedIn */}
-                        
-                          href={`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(cert.certificate_link)}&title=${encodeURIComponent(`I earned a certificate in ${courseName}`)}&summary=${encodeURIComponent("Completed at NEXUS AI Skills Academy — Africa's premier online learning platform.")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0A66C2]/10 text-[#0A66C2] border border-[#0A66C2]/30 hover:bg-[#0A66C2]/20 transition-colors text-xs font-medium"
-                        >
-                          in LinkedIn
-                        </a>
+                       {/* LinkedIn */}
+<a
+  href={`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(cert.certificate_link)}&title=${encodeURIComponent("I earned a certificate in " + courseName)}&summary=${encodeURIComponent("Completed at NEXUS AI Skills Academy — Africa's premier online learning platform.")}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0A66C2]/10 text-[#0A66C2] border border-[#0A66C2]/30 hover:bg-[#0A66C2]/20 transition-colors text-sm"
+>
+  in LinkedIn
+</a>
                       </>
                     ) : (
                       <Badge className="bg-secondary text-muted-foreground text-xs">
