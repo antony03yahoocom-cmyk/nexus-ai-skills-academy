@@ -66,7 +66,8 @@ const TestimonialsSection = () => {
             Completed a course? Share your achievement and inspire others.
           </p>
           <div className="flex justify-center gap-3 flex-wrap">
-            
+            {/* FIX: was missing opening <a tag */}
+            <a
               href="https://twitter.com/intent/tweet?text=I%20just%20completed%20a%20course%20on%20%40NexusAIAcademy%20and%20earned%20my%20certificate!%20%F0%9F%8E%93%20Africa%27s%20best%20online%20learning%20platform.%20Join%20me%20at%20nexusaiskillsacademy.com%20%23NexusAI%20%23LearnAI"
               target="_blank"
               rel="noopener noreferrer"
@@ -74,7 +75,8 @@ const TestimonialsSection = () => {
             >
               𝕏 Share on X
             </a>
-            
+            {/* FIX: was missing opening <a tag */}
+            <a
               href="https://www.linkedin.com/shareArticle?mini=true&url=https://nexusaiskillsacademy.com&title=I%20just%20earned%20a%20certificate%20from%20NEXUS%20AI%20Academy!&summary=Africa%27s%20premier%20online%20learning%20platform%20for%20AI%20and%20digital%20skills."
               target="_blank"
               rel="noopener noreferrer"
@@ -82,7 +84,8 @@ const TestimonialsSection = () => {
             >
               in Share on LinkedIn
             </a>
-            
+            {/* FIX: was missing opening <a tag */}
+            <a
               href="https://wa.me/?text=I%20just%20earned%20a%20certificate%20on%20NEXUS%20AI%20Academy!%20Join%20me%20at%20https://nexusaiskillsacademy.com"
               target="_blank"
               rel="noopener noreferrer"

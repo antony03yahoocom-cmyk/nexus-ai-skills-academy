@@ -159,6 +159,23 @@ const StudentCertificatesPage = () => {
             </h2>
             {certificates.map((cert: any) => {
               const courseName = cert.courses?.title ?? "Course";
+
+              // ── Pre-compute all share URLs (fixes nested template literal build crash) ──
+              const encodedCertLink   = encodeURIComponent(cert.certificate_link ?? "");
+              const whatsappText      = encodeURIComponent(
+                "🎓 I just earned my certificate in \"" + courseName + "\" from NEXUS AI Academy! " + (cert.certificate_link ?? "")
+              );
+              const linkedInTitle    = encodeURIComponent("I earned a certificate in " + courseName);
+              const linkedInSummary  = encodeURIComponent(
+                "Completed at NEXUS AI Skills Academy \u2014 Africa's premier online learning platform."
+              );
+              const whatsappHref  = "https://wa.me/?text=" + whatsappText;
+              const linkedInHref  =
+                "https://www.linkedin.com/shareArticle?mini=true" +
+                "&url=" + encodedCertLink +
+                "&title=" + linkedInTitle +
+                "&summary=" + linkedInSummary;
+
               return (
                 <div key={cert.id} className="glass-card p-5 border-success/20">
                   <div className="flex items-start justify-between flex-wrap gap-4">
@@ -189,10 +206,16 @@ const StudentCertificatesPage = () => {
                       <>
                         {/* Download SVG */}
                         <Button size="sm" variant="outline" asChild>
-                          <a href={cert.certificate_link} download={`NEXUS_Certificate_${cert.id.slice(0, 8)}.svg`} target="_blank" rel="noreferrer">
+                          <a
+                            href={cert.certificate_link}
+                            download={"NEXUS_Certificate_" + cert.id.slice(0, 8) + ".svg"}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             <Download className="w-4 h-4 mr-1" /> Download SVG
                           </a>
                         </Button>
+
                         {/* Print / Save as PDF */}
                         <Button
                           size="sm"
@@ -201,6 +224,7 @@ const StudentCertificatesPage = () => {
                         >
                           <Printer className="w-4 h-4 mr-1" /> Save as PDF
                         </Button>
+
                         {/* Share */}
                         <Button
                           size="sm"
@@ -209,18 +233,20 @@ const StudentCertificatesPage = () => {
                         >
                           <Share2 className="w-4 h-4 mr-1" /> Share
                         </Button>
-                        {/* WhatsApp */}
-                        
-                          href={`https://wa.me/?text=${encodeURIComponent(`🎓 I just earned my certificate in "${courseName}" from NEXUS AI Academy! ${cert.certificate_link}`)}`}
+
+                        {/* WhatsApp — FIX: was missing opening <a tag */}
+                        <a
+                          href={whatsappHref}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-colors text-xs font-medium"
                         >
                           💬 WhatsApp
                         </a>
-                        {/* LinkedIn */}
-                        
-                          href={`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(cert.certificate_link)}&title=${encodeURIComponent(`I earned a certificate in ${courseName}`)}&summary=${encodeURIComponent("Completed at NEXUS AI Skills Academy — Africa's premier online learning platform.")}`}
+
+                        {/* LinkedIn — FIX: was missing opening <a tag + had nested template literal */}
+                        <a
+                          href={linkedInHref}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0A66C2]/10 text-[#0A66C2] border border-[#0A66C2]/30 hover:bg-[#0A66C2]/20 transition-colors text-xs font-medium"
@@ -271,7 +297,7 @@ const StudentCertificatesPage = () => {
                     )}
                     <div className="flex items-center gap-2 max-w-xs">
                       <Progress value={prog} className="h-2 flex-1 bg-secondary" />
-                      <span className={`text-xs font-semibold shrink-0 ${isComplete ? "text-success" : "text-muted-foreground"}`}>
+                      <span className={"text-xs font-semibold shrink-0 " + (isComplete ? "text-success" : "text-muted-foreground")}>
                         {prog}%
                       </span>
                     </div>
@@ -282,7 +308,12 @@ const StudentCertificatesPage = () => {
                         <Award className="w-3 h-3 mr-1" /> Earned
                       </Badge>
                     ) : isComplete || noLessons ? (
-                      <Button size="sm" variant="hero" disabled={generating === e.course_id} onClick={() => requestCertificate(e.course_id)}>
+                      <Button
+                        size="sm"
+                        variant="hero"
+                        disabled={generating === e.course_id}
+                        onClick={() => requestCertificate(e.course_id)}
+                      >
                         {generating === e.course_id
                           ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Generating...</>
                           : <><Award className="w-4 h-4 mr-1" /> Get Certificate</>}
