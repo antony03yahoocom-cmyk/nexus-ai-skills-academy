@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const FALLBACK = [
-  { name: "Wanjiku Muthoni", role: "AI Engineer at Upwork", content: "NEXUS AI Academy gave me the exact skills I needed to transition into machine learning. The course quality is unmatched and truly world-class.", rating: 5 },
+  { name: "Wanjiku Muthoni", role: "AI Engineer at Safaricom", content: "NEXUS AI Academy gave me the exact skills I needed to transition into machine learning. The course quality is unmatched and truly world-class.", rating: 5 },
   { name: "Kwame Asante", role: "Full-Stack Developer, Lagos", content: "The project-based approach helped me build a real portfolio. I landed my dream job within 3 months of completing the web dev track.", rating: 5 },
   { name: "Amina Osei", role: "Data Analyst at Andela", content: "Crystal clear explanations and hands-on assignments. The data analysis course transformed my career prospects entirely.", rating: 5 },
 ];
