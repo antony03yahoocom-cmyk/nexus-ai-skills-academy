@@ -25,6 +25,8 @@ import AdminSettingsPage from "./pages/AdminSettingsPage.tsx";
 import AdminProjectsPage from "./pages/AdminProjectsPage.tsx";
 import AdminCertificatesPage from "./pages/AdminCertificatesPage.tsx";
 import AdminEnrollmentsPage from "./pages/AdminEnrollmentsPage.tsx";
+import AdminTestimonialsPage from "./pages/AdminTestimonialsPage.tsx";
+import AdminFeedbackPage from "./pages/AdminFeedbackPage.tsx";
 import SubscribePage from "./pages/SubscribePage.tsx";
 import PortfolioPage from "./pages/PortfolioPage.tsx";
 import DiscussionGroupsPage from "./pages/DiscussionGroupsPage.tsx";
@@ -33,6 +35,9 @@ import AdminGroupsPage from "./pages/AdminGroupsPage.tsx";
 import ProfileSettingsPage from "./pages/ProfileSettingsPage.tsx";
 import MessagesPage from "./pages/MessagesPage.tsx";
 import AdminMessagesPage from "./pages/AdminMessagesPage.tsx";
+import BlogPage from "./pages/BlogPage.tsx";
+import LeaderboardPage from "./pages/LeaderboardPage.tsx";
+import NotificationsPage from "./pages/NotificationsPage.tsx";
 
 const queryClient = new QueryClient();
 
@@ -51,10 +56,13 @@ const App = () => (
             <Route path="/courses/:courseId" element={<CourseDetailPage />} />
             <Route path="/subscribe" element={<SubscribePage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/lesson/:lessonId" element={<ProtectedRoute><LessonViewerPage /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
             <Route path="/dashboard/projects" element={<ProtectedRoute><StudentProjectsPage /></ProtectedRoute>} />
             <Route path="/dashboard/certificates" element={<ProtectedRoute><StudentCertificatesPage /></ProtectedRoute>} />
+            <Route path="/dashboard/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
             <Route path="/discussions" element={<ProtectedRoute><DiscussionGroupsPage /></ProtectedRoute>} />
             <Route path="/discussions/:groupId" element={<ProtectedRoute><GroupChatPage /></ProtectedRoute>} />
             <Route path="/dashboard/settings" element={<ProtectedRoute><ProfileSettingsPage /></ProtectedRoute>} />
@@ -71,6 +79,8 @@ const App = () => (
             <Route path="/admin/certificates" element={<AdminRoute><AdminCertificatesPage /></AdminRoute>} />
             <Route path="/admin/groups" element={<AdminRoute><AdminGroupsPage /></AdminRoute>} />
             <Route path="/admin/messages" element={<AdminRoute><AdminMessagesPage /></AdminRoute>} />
+            <Route path="/admin/testimonials" element={<AdminRoute><AdminTestimonialsPage /></AdminRoute>} />
+            <Route path="/admin/feedback" element={<AdminRoute><AdminFeedbackPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <StudentChatbot />
