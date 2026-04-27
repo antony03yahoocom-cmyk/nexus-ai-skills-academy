@@ -176,7 +176,7 @@ const BlogPage = () => {
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <Download className="w-6 h-6 text-accent" /> Resource Library
               </h2>
-              
+              <a
                 href="https://sites.google.com/view/nexus-ai-pdf-hub?usp=sharing"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -199,9 +199,9 @@ const BlogPage = () => {
                     <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">Featured</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                    Your one-stop library for free AI learning resources. Includes eBooks on machine learning, prompt engineering guides, Python cheat sheets, data science workbooks and much more — all completely free for NEXUS learners.
+                    Your one-stop library for free AI learning resources. Includes eBooks on machine learning, prompt engineering guides, Python cheat sheets, data science workbooks and much more.
                   </p>
-                  
+                  <a
                     href="https://sites.google.com/view/nexus-ai-pdf-hub?usp=sharing"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -228,7 +228,7 @@ const BlogPage = () => {
                         <Badge className={`${res.badgeColor} text-[10px]`}>{res.badge}</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{res.description}</p>
-                      
+                      <a
                         href={res.link}
                         target="_blank"
                         rel="noopener noreferrer"
