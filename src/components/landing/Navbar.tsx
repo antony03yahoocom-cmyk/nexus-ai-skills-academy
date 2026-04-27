@@ -1,18 +1,26 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Cpu, Menu, X } from "lucide-react";
+import { Cpu, Menu, X, LayoutDashboard, ShieldCheck, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
+  const { user, isAdmin, loading, signOut } = useAuth();
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setIsOpen(false);
+    navigate("/");
+  };
 
   const links = [
     { label: "Courses", to: "/courses" },
@@ -53,12 +61,37 @@ const Navbar = () => {
 
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/login">Login</Link>
-            </Button>
-            <Button variant="hero" size="sm" asChild>
-              <Link to="/signup">Get Started</Link>
-            </Button>
+            {!loading && user ? (
+              <>
+                {isAdmin && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/admin">
+                      <ShieldCheck className="w-4 h-4 mr-1" />
+                      Admin
+                    </Link>
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/dashboard">
+                    <LayoutDashboard className="w-4 h-4 mr-1" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/login">Login</Link>
+                </Button>
+                <Button variant="hero" size="sm" asChild>
+                  <Link to="/signup">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -87,12 +120,37 @@ const Navbar = () => {
             </Link>
           ))}
           <div className="border-t border-border pt-3 mt-3 flex flex-col gap-2">
-            <Button variant="ghost" size="sm" asChild className="justify-start">
-              <Link to="/login" onClick={() => setIsOpen(false)}>Login</Link>
-            </Button>
-            <Button variant="hero" size="sm" asChild>
-              <Link to="/signup" onClick={() => setIsOpen(false)}>Get Started — Free Trial</Link>
-            </Button>
+            {!loading && user ? (
+              <>
+                {isAdmin && (
+                  <Button variant="ghost" size="sm" asChild className="justify-start">
+                    <Link to="/admin" onClick={() => setIsOpen(false)}>
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Admin Dashboard
+                    </Link>
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" asChild className="justify-start">
+                  <Link to="/dashboard" onClick={() => setIsOpen(false)}>
+                    <LayoutDashboard className="w-4 h-4 mr-2" />
+                    Student Dashboard
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" className="justify-start" onClick={handleSignOut}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild className="justify-start">
+                  <Link to="/login" onClick={() => setIsOpen(false)}>Login</Link>
+                </Button>
+                <Button variant="hero" size="sm" asChild>
+                  <Link to="/signup" onClick={() => setIsOpen(false)}>Get Started — Free Trial</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
