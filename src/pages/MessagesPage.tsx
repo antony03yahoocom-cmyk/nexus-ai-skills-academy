@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, ArrowLeft, Mail, Search, Circle } from "lucide-react";
+import { Send, ArrowLeft, Mail, Search, MessageCircle, HeadphonesIcon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardTopNav from "@/components/dashboard/DashboardTopNav";
+import { Badge } from "@/components/ui/badge";
 
 interface Conversation {
   user_id: string;
@@ -17,6 +18,7 @@ interface Conversation {
   last_message: string;
   last_time: string;
   unread: number;
+  is_admin?: boolean;
 }
 
 interface Message {
@@ -28,16 +30,54 @@ interface Message {
   created_at: string;
 }
 
+// Format timestamp relative to today
+const formatMsgTime = (dateStr: string) => {
+  const d = new Date(dateStr);
+  if (isToday(d)) return format(d, "HH:mm");
+  if (isYesterday(d)) return `Yesterday ${format(d, "HH:mm")}`;
+  return format(d, "dd MMM, HH:mm");
+};
+
+// Group messages by date for day separators
+const getDayLabel = (dateStr: string) => {
+  const d = new Date(dateStr);
+  if (isToday(d)) return "Today";
+  if (isYesterday(d)) return "Yesterday";
+  return format(d, "MMMM d, yyyy");
+};
+
 const MessagesPage = () => {
   const { user, isAdmin } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; is_admin?: boolean } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
-  const [allUsers, setAllUsers] = useState<{ user_id: string; full_name: string; avatar_url: string | null }[]>([]);
+  const [allUsers, setAllUsers] = useState<{ user_id: string; full_name: string; avatar_url: string | null; is_admin?: boolean }[]>([]);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [charCount, setCharCount] = useState(0);
+  const [adminContact, setAdminContact] = useState<{ user_id: string; full_name: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Pre-load admin contact for students
+  useEffect(() => {
+    if (!user || isAdmin) return;
+    supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin")
+      .limit(1)
+      .single()
+      .then(async ({ data: roleData }) => {
+        if (!roleData?.user_id) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .eq("user_id", roleData.user_id)
+          .single();
+        if (profile) setAdminContact(profile as any);
+      });
+  }, [user, isAdmin]);
 
   // Load conversations
   const loadConversations = useCallback(async () => {
@@ -69,16 +109,21 @@ const MessagesPage = () => {
       .select("user_id, full_name, avatar_url")
       .in("user_id", userIds);
 
+    // Get admin IDs to badge them
+    const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    const adminIdSet = new Set((adminRoles || []).map((r: any) => r.user_id));
+
     const convs: Conversation[] = userIds.map((uid) => {
       const entry = convMap.get(uid)!;
       const prof = profiles?.find((p) => p.user_id === uid);
       return {
         user_id: uid,
-        full_name: prof?.full_name || "Unknown",
+        full_name: prof?.full_name || "NEXUS Support",
         avatar_url: prof?.avatar_url || null,
         last_message: entry.last.content,
         last_time: entry.last.created_at,
         unread: entry.unread,
+        is_admin: adminIdSet.has(uid),
       };
     });
 
@@ -106,7 +151,9 @@ const MessagesPage = () => {
       .eq("sender_id", selectedUser.id)
       .eq("receiver_id", user.id)
       .eq("is_read", false);
-  }, [user, selectedUser]);
+
+    loadConversations();
+  }, [user, selectedUser, loadConversations]);
 
   useEffect(() => { loadMessages(); }, [loadMessages]);
 
@@ -136,176 +183,332 @@ const MessagesPage = () => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  // Load users for new chat
+  // Load users for "New Chat"
   const loadUsers = async () => {
     setShowNewChat(true);
     if (isAdmin) {
-      // Admin can message any student
       const { data } = await supabase.from("profiles").select("user_id, full_name, avatar_url");
       setAllUsers((data || []).filter((p) => p.user_id !== user?.id));
     } else {
-      // Students can message admins
       const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
       const adminIds = (adminRoles || []).map((r) => r.user_id);
       if (adminIds.length === 0) { setAllUsers([]); return; }
       const { data } = await supabase.from("profiles").select("user_id, full_name, avatar_url").in("user_id", adminIds);
-      setAllUsers(data || []);
+      setAllUsers((data || []).map((u) => ({ ...u, is_admin: true })));
     }
   };
 
   const sendMessage = async () => {
     if (!input.trim() || !user || !selectedUser) return;
-    const { error } = await supabase.from("private_messages").insert({
+    const content = input.trim();
+    setInput("");
+    setCharCount(0);
+    await supabase.from("private_messages").insert({
       sender_id: user.id,
       receiver_id: selectedUser.id,
-      content: input.trim(),
+      content,
     });
-    if (!error) setInput("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  const startChat = (u: { user_id: string; full_name: string }) => {
-    setSelectedUser({ id: u.user_id, name: u.full_name || "Unknown" });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    setCharCount(e.target.value.length);
+  };
+
+  const startChat = (u: { user_id: string; full_name: string; is_admin?: boolean }) => {
+    setSelectedUser({ id: u.user_id, name: u.full_name || "NEXUS Support", is_admin: u.is_admin });
     setShowNewChat(false);
+  };
+
+  const startAdminChat = () => {
+    if (adminContact) startChat({ ...adminContact, is_admin: true });
   };
 
   const filteredUsers = allUsers.filter((u) =>
     u.full_name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Build messages with day separators
+  const messagesWithSeparators: Array<Message | { type: "separator"; label: string; key: string }> = [];
+  let lastDay = "";
+  for (const msg of messages) {
+    const dayLabel = getDayLabel(msg.created_at);
+    if (dayLabel !== lastDay) {
+      messagesWithSeparators.push({ type: "separator", label: dayLabel, key: `sep-${msg.id}` });
+      lastDay = dayLabel;
+    }
+    messagesWithSeparators.push(msg);
+  }
+
+  const hasConversations = conversations.length > 0;
+  const totalUnread = conversations.reduce((s, c) => s + c.unread, 0);
+
   return (
     <div className="flex min-h-screen bg-background">
       <DashboardSidebar />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <DashboardTopNav />
         <div className="flex-1 flex overflow-hidden">
-          {/* Conversation list */}
+
+          {/* ── Conversation List ── */}
           <div className={cn(
-            "w-full md:w-80 border-r flex flex-col shrink-0",
+            "w-full md:w-80 border-r flex flex-col shrink-0 bg-card/30",
             selectedUser ? "hidden md:flex" : "flex"
           )}>
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="font-semibold flex items-center gap-2"><Mail className="h-4 w-4" /> Messages</h2>
-              <Button size="sm" variant="outline" onClick={loadUsers}>New</Button>
+            <div className="p-4 border-b flex items-center justify-between gap-2">
+              <h2 className="font-semibold flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4 text-primary" /> Messages
+                {totalUnread > 0 && (
+                  <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                    {totalUnread > 9 ? "9+" : totalUnread}
+                  </span>
+                )}
+              </h2>
+              <Button size="sm" variant="outline" onClick={loadUsers} className="text-xs">
+                + New
+              </Button>
             </div>
 
-            {showNewChat && (
-              <div className="p-3 border-b space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+            {/* ── Student: Contact Instructor banner (shown when no conversations) ── */}
+            {!isAdmin && !hasConversations && !showNewChat && adminContact && (
+              <div className="mx-3 mt-3 p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <HeadphonesIcon className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-xs font-semibold text-primary">Need help?</p>
                 </div>
-                <div className="max-h-40 overflow-y-auto space-y-1">
-                  {filteredUsers.map((u) => (
-                    <button key={u.user_id} onClick={() => startChat(u)} className="w-full text-left px-3 py-2 rounded-lg hover:bg-accent text-sm flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                        {u.full_name?.[0]?.toUpperCase() || "?"}
-                      </div>
-                      {u.full_name || "Unknown"}
-                    </button>
-                  ))}
-                  {filteredUsers.length === 0 && <p className="text-sm text-muted-foreground px-3 py-2">No users found</p>}
-                </div>
-                <Button size="sm" variant="ghost" onClick={() => setShowNewChat(false)} className="w-full">Cancel</Button>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Message your instructor directly — ask questions, get help with assignments, or share feedback.
+                </p>
+                <Button size="sm" variant="hero" className="w-full text-xs" onClick={startAdminChat}>
+                  <MessageCircle className="w-3 h-3 mr-1" /> Message Instructor
+                </Button>
               </div>
             )}
 
+            {/* ── Student: Pinned instructor contact (always visible for students with convs) ── */}
+            {!isAdmin && hasConversations && adminContact && !conversations.find((c) => c.user_id === adminContact.user_id) && (
+              <button
+                onClick={startAdminChat}
+                className="flex items-center gap-3 px-4 py-2.5 border-b hover:bg-accent/50 transition-colors bg-primary/5 text-left"
+              >
+                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                  N
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-xs truncate">NEXUS Instructor</p>
+                  <p className="text-[10px] text-muted-foreground">Tap to send a message</p>
+                </div>
+                <Sparkles className="w-3 h-3 text-primary shrink-0" />
+              </button>
+            )}
+
+            {/* New Chat Search Panel */}
+            {showNewChat && (
+              <div className="p-3 border-b space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {isAdmin ? "Select a student to message:" : "Contact instructor:"}
+                </p>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-8 h-8 text-sm"
+                  />
+                </div>
+                <div className="max-h-44 overflow-y-auto space-y-0.5">
+                  {filteredUsers.map((u) => (
+                    <button
+                      key={u.user_id}
+                      onClick={() => startChat(u)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-accent text-sm flex items-center gap-2 transition-colors"
+                    >
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary shrink-0">
+                        {u.full_name?.[0]?.toUpperCase() || "?"}
+                      </div>
+                      <span className="truncate flex-1">{u.full_name || "Unknown"}</span>
+                      {(u as any).is_admin && (
+                        <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] shrink-0">Instructor</Badge>
+                      )}
+                    </button>
+                  ))}
+                  {filteredUsers.length === 0 && (
+                    <p className="text-sm text-muted-foreground px-3 py-2">No users found</p>
+                  )}
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setShowNewChat(false)} className="w-full text-xs">
+                  Cancel
+                </Button>
+              </div>
+            )}
+
+            {/* Conversations list */}
             <div className="flex-1 overflow-y-auto">
               {conversations.map((conv) => (
                 <button
                   key={conv.user_id}
-                  onClick={() => { setSelectedUser({ id: conv.user_id, name: conv.full_name }); setShowNewChat(false); }}
+                  onClick={() => { setSelectedUser({ id: conv.user_id, name: conv.full_name, is_admin: conv.is_admin }); setShowNewChat(false); }}
                   className={cn(
                     "w-full text-left px-4 py-3 border-b hover:bg-accent/50 flex items-center gap-3 transition-colors",
                     selectedUser?.id === conv.user_id && "bg-accent"
                   )}
                 >
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary shrink-0">
-                    {conv.full_name?.[0]?.toUpperCase() || "?"}
+                  <div className="relative shrink-0">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                      {conv.is_admin ? "N" : (conv.full_name?.[0]?.toUpperCase() || "?")}
+                    </div>
+                    {conv.is_admin && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-success border-2 border-background" title="Instructor" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm truncate">{conv.full_name}</p>
-                      <span className="text-xs text-muted-foreground shrink-0">{format(new Date(conv.last_time), "HH:mm")}</span>
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="font-medium text-sm truncate">
+                        {conv.is_admin ? "NEXUS Instructor" : conv.full_name}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{formatMsgTime(conv.last_time)}</span>
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{conv.last_message}</p>
                   </div>
                   {conv.unread > 0 && (
-                    <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center shrink-0">{conv.unread}</span>
+                    <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center shrink-0 font-bold">
+                      {conv.unread}
+                    </span>
                   )}
                 </button>
               ))}
-              {conversations.length === 0 && !showNewChat && (
+
+              {!hasConversations && !showNewChat && (
                 <div className="p-6 text-center text-muted-foreground text-sm">
-                  <Mail className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p>No messages yet</p>
-                  <p className="text-xs mt-1">Click "New" to start a conversation</p>
+                  <Mail className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                  <p className="font-medium">No messages yet</p>
+                  {isAdmin
+                    ? <p className="text-xs mt-1">Click "+ New" to message a student</p>
+                    : <p className="text-xs mt-1">Click "+ New" or use the button above to contact your instructor</p>}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Chat area */}
+          {/* ── Chat Area ── */}
           <div className={cn(
-            "flex-1 flex flex-col",
+            "flex-1 flex flex-col min-w-0",
             !selectedUser ? "hidden md:flex" : "flex"
           )}>
             {selectedUser ? (
               <>
-                <div className="px-4 py-3 border-b flex items-center gap-3">
-                  <button onClick={() => setSelectedUser(null)} className="md:hidden">
+                {/* Chat header */}
+                <div className="px-4 py-3 border-b flex items-center gap-3 bg-card/30">
+                  <button onClick={() => setSelectedUser(null)} className="md:hidden shrink-0">
                     <ArrowLeft className="h-5 w-5" />
                   </button>
-                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                    {selectedUser.name[0]?.toUpperCase() || "?"}
+                  <div className="relative shrink-0">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                      {selectedUser.is_admin ? "N" : (selectedUser.name[0]?.toUpperCase() || "?")}
+                    </div>
+                    {selectedUser.is_admin && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-success border-2 border-background" />
+                    )}
                   </div>
-                  <div>
-                    <p className="font-semibold text-sm">{selectedUser.name}</p>
-                    <p className="text-xs text-muted-foreground">Private message</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">
+                      {selectedUser.is_admin ? "NEXUS Instructor" : selectedUser.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedUser.is_admin ? "Academy Support · Usually responds within 24h" : "Private message"}
+                    </p>
                   </div>
+                  {selectedUser.is_admin && (
+                    <Badge className="bg-success/10 text-success border-success/20 text-[10px] shrink-0">Instructor</Badge>
+                  )}
                 </div>
 
+                {/* Messages */}
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {messages.map((msg) => {
+                  {messagesWithSeparators.map((item) => {
+                    if ("type" in item && item.type === "separator") {
+                      return (
+                        <div key={item.key} className="flex items-center gap-3 my-2">
+                          <div className="flex-1 h-px bg-border" />
+                          <span className="text-[10px] text-muted-foreground shrink-0 px-2">{item.label}</span>
+                          <div className="flex-1 h-px bg-border" />
+                        </div>
+                      );
+                    }
+
+                    const msg = item as Message;
                     const isMine = msg.sender_id === user?.id;
+
                     return (
                       <div key={msg.id} className={cn("flex", isMine ? "justify-end" : "justify-start")}>
+                        {!isMine && (
+                          <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0 mr-2 mt-1">
+                            {selectedUser.is_admin ? "N" : selectedUser.name[0]?.toUpperCase()}
+                          </div>
+                        )}
                         <div className={cn(
-                          "max-w-[70%] rounded-2xl px-4 py-2",
-                          isMine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted rounded-bl-md"
+                          "max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm",
+                          isMine
+                            ? "bg-primary text-primary-foreground rounded-br-md"
+                            : "bg-muted rounded-bl-md border border-border/50"
                         )}>
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                          <p className={cn("text-xs mt-1", isMine ? "text-primary-foreground/60" : "text-muted-foreground")}>
-                            {format(new Date(msg.created_at), "HH:mm")}
-                          </p>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                          <div className={cn("flex items-center justify-end gap-1 mt-1")}>
+                            <p className={cn("text-[10px]", isMine ? "text-primary-foreground/60" : "text-muted-foreground")}>
+                              {format(new Date(msg.created_at), "HH:mm")}
+                            </p>
+                            {isMine && msg.is_read && (
+                              <span className="text-[10px] text-primary-foreground/60">✓✓</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="border-t p-3 flex gap-2">
-                  <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Type a message..."
-                    className="flex-1"
-                  />
-                  <Button onClick={sendMessage} disabled={!input.trim()} size="icon">
-                    <Send className="h-4 w-4" />
-                  </Button>
+                {/* Input */}
+                <div className="border-t p-3 space-y-1 bg-card/30">
+                  <div className="flex gap-2">
+                    <Input
+                      value={input}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      placeholder={selectedUser.is_admin ? "Message your instructor..." : "Type a message..."}
+                      className="flex-1"
+                      maxLength={2000}
+                    />
+                    <Button onClick={sendMessage} disabled={!input.trim()} size="icon" className="shrink-0">
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {charCount > 1800 && (
+                    <p className="text-[10px] text-muted-foreground text-right">{charCount}/2000</p>
+                  )}
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Mail className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p className="font-medium">Select a conversation</p>
-                  <p className="text-sm">or start a new one</p>
+              /* Empty state for desktop */
+              <div className="flex-1 flex items-center justify-center text-muted-foreground p-6">
+                <div className="text-center max-w-xs">
+                  <Mail className="h-14 w-14 mx-auto mb-4 opacity-20" />
+                  <p className="font-semibold text-base mb-1">Your Messages</p>
+                  <p className="text-sm mb-6 text-muted-foreground">
+                    {isAdmin
+                      ? "Select a conversation or start a new one to message a student."
+                      : "Ask questions, get assignment feedback, and stay in touch with your instructor here."}
+                  </p>
+                  {!isAdmin && adminContact && (
+                    <Button variant="hero" size="sm" onClick={startAdminChat}>
+                      <HeadphonesIcon className="w-4 h-4 mr-2" />
+                      Contact Instructor
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

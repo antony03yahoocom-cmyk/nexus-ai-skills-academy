@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock, ExternalLink, Paperclip, Send, AlertCircle, Upload, X, ImageIcon, Loader2 } from "lucide-react";
+import { ArrowLeft, PlayCircle, FileText, CheckCircle, Lock, ExternalLink, Paperclip, Send, AlertCircle, Upload, X, ImageIcon, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,7 +26,7 @@ const sanitizeFileName = (name: string): string => {
 
 const LessonViewerPage = () => {
   const { lessonId } = useParams();
-  const { user, profile, isAdmin, hasCourseAccess, canAccessLesson, trialActive, trialDaysLeft } = useAuth();
+  const { user, isAdmin, hasCourseAccess, canAccessLesson, trialActive } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [submissionText, setSubmissionText] = useState("");
@@ -34,9 +34,9 @@ const LessonViewerPage = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>({});
   const [previewUrls, setPreviewUrls] = useState<Record<string, string[]>>({});
+  const [justSubmitted, setJustSubmitted] = useState<string | null>(null); // assignment ID just submitted
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Clean up all object URLs when component unmounts
   useEffect(() => {
     return () => {
       Object.values(previewUrls).flat().forEach((u) => URL.revokeObjectURL(u));
@@ -128,7 +128,7 @@ const LessonViewerPage = () => {
     enabled: !!lessonId,
   });
 
-  const { data: mySubmissions = [] } = useQuery({
+  const { data: mySubmissions = [], refetch: refetchSubmissions } = useQuery({
     queryKey: ["my-submissions", user?.id, lessonId],
     queryFn: async () => {
       const assignIds = assignments.map((a: any) => a.id);
@@ -156,53 +156,39 @@ const LessonViewerPage = () => {
     mutationFn: async () => {
       const { error } = await supabase.from("lesson_completions").insert({ user_id: user!.id, lesson_id: lessonId! });
       if (error) throw error;
-
-      // ✅ FIX: Update enrollment progress in DB so dashboard reflects real progress
       if (courseId) {
-        const newCompletedCount = completedCount + 1;
-        const newProgress = totalLessons > 0 ? Math.round((newCompletedCount / totalLessons) * 100) : 0;
-        await supabase
-          .from("enrollments")
-          .update({ progress: newProgress })
-          .eq("user_id", user!.id)
-          .eq("course_id", courseId);
+        const newProgress = totalLessons > 0 ? Math.round(((completedCount + 1) / totalLessons) * 100) : 0;
+        await supabase.from("enrollments").update({ progress: newProgress }).eq("user_id", user!.id).eq("course_id", courseId);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-completions"] });
-      queryClient.invalidateQueries({ queryKey: ["enrollments"] }); // refresh dashboard progress
-      toast.success("Lesson marked as complete!");
+      queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+      toast.success("Lesson marked as complete! 🎉");
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // ✅ Handle file selection with size validation and image preview generation
   const handleFileChange = (assignmentId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const oversized = files.filter((f) => f.size > MAX_FILE_SIZE_BYTES);
     if (oversized.length > 0) {
-      toast.error(`File too large: ${oversized.map((f) => f.name).join(", ")}. Max size is ${MAX_FILE_SIZE_MB}MB per file.`);
+      toast.error(`File too large: ${oversized.map((f) => f.name).join(", ")}. Max ${MAX_FILE_SIZE_MB}MB each.`);
       e.target.value = "";
       return;
     }
-    // Revoke old preview URLs for this assignment
     previewUrls[assignmentId]?.forEach((u) => URL.revokeObjectURL(u));
-    // Create object URL previews for image files only
-    const newPreviews = files
-      .filter((f) => f.type.startsWith("image/"))
-      .map((f) => URL.createObjectURL(f));
+    const newPreviews = files.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f));
     setPreviewUrls((prev) => ({ ...prev, [assignmentId]: newPreviews }));
     setSelectedFiles((prev) => ({ ...prev, [assignmentId]: files }));
   };
 
   const removeFile = (assignmentId: string, index: number) => {
-    const currentFiles = selectedFiles[assignmentId] || [];
-    const updated = [...currentFiles];
+    const updated = [...(selectedFiles[assignmentId] || [])];
     updated.splice(index, 1);
     if (updated.length === 0 && fileInputRefs.current[assignmentId]) {
       fileInputRefs.current[assignmentId]!.value = "";
     }
-    // Revoke old previews and generate new ones for remaining image files
     previewUrls[assignmentId]?.forEach((u) => URL.revokeObjectURL(u));
     const newPreviews = updated.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f));
     setSelectedFiles((prev) => ({ ...prev, [assignmentId]: updated }));
@@ -215,25 +201,17 @@ const LessonViewerPage = () => {
     let fileUrls: string[] = [];
 
     const filesToUpload = selectedFiles[assignmentId] || [];
-
     if (filesToUpload.length > 0) {
       for (let i = 0; i < filesToUpload.length; i++) {
         const file = filesToUpload[i];
-        const safeFileName = sanitizeFileName(file.name);
-        const path = `${user!.id}/${Date.now()}_${safeFileName}`;
-
-        const { error } = await supabase.storage.from("assignment-files").upload(path, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
+        const path = `${user!.id}/${Date.now()}_${sanitizeFileName(file.name)}`;
+        const { error } = await supabase.storage.from("assignment-files").upload(path, file, { cacheControl: "3600", upsert: false });
         if (error) {
           toast.error(`Upload failed for "${file.name}": ${error.message}`);
           setSubmitting(false);
           setUploadProgress(0);
           return;
         }
-
         const { data: urlData } = supabase.storage.from("assignment-files").getPublicUrl(path);
         if (urlData?.publicUrl) fileUrls.push(urlData.publicUrl);
         setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 80));
@@ -284,34 +262,35 @@ const LessonViewerPage = () => {
       );
       const result = await resp.json();
       if (result.status === "Approved") {
-        toast.success(result.feedback || "Assignment approved! ✅");
+        toast.success("Assignment approved! 🎉 Check your Messages for details.");
       } else if (result.status === "Rejected") {
-        toast.error(result.feedback || "Assignment needs revision ❌");
+        toast.error("Assignment needs revision. Check your Messages for feedback.");
       } else {
-        toast.success("Assignment submitted! Awaiting review.");
+        toast.success("Submitted! 🎉 Check your Messages — you have a new notification.");
       }
     } catch {
-      toast.success("Assignment submitted!");
+      toast.success("Submitted! 🎉 Check your Messages for updates.");
     }
 
-    // Clear state after submission
+    // Mark as just submitted to show success card
+    setJustSubmitted(assignmentId);
+
+    // Clear form
     setSubmissionText("");
     setSelectedFiles((prev) => ({ ...prev, [assignmentId]: [] }));
     previewUrls[assignmentId]?.forEach((u) => URL.revokeObjectURL(u));
     setPreviewUrls((prev) => ({ ...prev, [assignmentId]: [] }));
-    if (fileInputRefs.current[assignmentId]) {
-      fileInputRefs.current[assignmentId]!.value = "";
-    }
+    if (fileInputRefs.current[assignmentId]) fileInputRefs.current[assignmentId]!.value = "";
     setSubmitting(false);
     setUploadProgress(0);
+
     queryClient.invalidateQueries({ queryKey: ["my-submissions"] });
     queryClient.invalidateQueries({ queryKey: ["all-submissions"] });
     queryClient.invalidateQueries({ queryKey: ["all-completions"] });
+    refetchSubmissions();
   };
 
-  const globalIndex = useMemo(() => {
-    return allCourseLessons.findIndex((l: any) => l.id === lessonId);
-  }, [allCourseLessons, lessonId]);
+  const globalIndex = useMemo(() => allCourseLessons.findIndex((l: any) => l.id === lessonId), [allCourseLessons, lessonId]);
 
   const hasAccess = useMemo(() => {
     if (!courseId || !user) return false;
@@ -325,7 +304,6 @@ const LessonViewerPage = () => {
   }, [courseId, user, isAdmin, hasCourseAccess, canAccessLesson, globalIndex, allCourseLessons, allCompletions, allAssignments, allSubmissions]);
 
   const currentAssignmentsApproved = isLessonAssignmentApproved(lessonId!);
-  const hasAssignments = assignments.length > 0;
   const canComplete = !currentCompletion && currentAssignmentsApproved;
 
   if (!lesson) return (
@@ -364,6 +342,7 @@ const LessonViewerPage = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
       <div className="flex-1 lg:w-3/4 overflow-auto">
+
         {/* Header */}
         <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border p-4 flex items-center gap-3">
           <Link to={courseId ? `/courses/${courseId}` : "/courses"} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
@@ -376,7 +355,7 @@ const LessonViewerPage = () => {
           {currentCompletion && <Badge className="bg-success/10 text-success border-success/20 shrink-0">✓ Done</Badge>}
         </div>
 
-        {/* Video/Content area */}
+        {/* Content area */}
         <div className="bg-card">
           {lesson.content_type === "video" && lesson.file_url ? (
             <div className="aspect-video">
@@ -403,7 +382,7 @@ const LessonViewerPage = () => {
           ) : lesson.content_type === "url" && lesson.file_url ? (
             <div className="p-6">
               <a href={lesson.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline text-lg mb-4">
-                <ExternalLink className="w-5 h-5" />Open External Resource
+                <ExternalLink className="w-5 h-5" /> Open External Resource
               </a>
               <iframe src={lesson.file_url} className="w-full h-[60vh] rounded-lg border border-border" title={lesson.title} />
             </div>
@@ -417,7 +396,7 @@ const LessonViewerPage = () => {
           ) : null}
         </div>
 
-        {/* Lesson content */}
+        {/* Lesson text */}
         <div className="p-4 sm:p-6 max-w-3xl mx-auto">
           {lesson.content_text && (
             <div className="prose prose-invert max-w-none mb-8">
@@ -436,11 +415,12 @@ const LessonViewerPage = () => {
           {/* Actions */}
           <div className="flex flex-wrap gap-3 mb-8">
             {canComplete && (
-              <Button variant="hero" onClick={() => markComplete.mutate()} className="w-full sm:w-auto">
-                <CheckCircle className="w-4 h-4 mr-1" />Mark as Complete
+              <Button variant="hero" onClick={() => markComplete.mutate()} disabled={markComplete.isPending} className="w-full sm:w-auto">
+                <CheckCircle className="w-4 h-4 mr-1" />
+                {markComplete.isPending ? "Saving..." : "Mark as Complete"}
               </Button>
             )}
-            {hasAssignments && !currentAssignmentsApproved && currentCompletion && (
+            {assignments.length > 0 && !currentAssignmentsApproved && currentCompletion && (
               <div className="flex items-center gap-2 text-sm text-accent">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 Assignment approval required to unlock next lesson
@@ -457,14 +437,16 @@ const LessonViewerPage = () => {
           {assignments.length > 0 && (
             <div className="space-y-6">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <Paperclip className="w-5 h-5 text-primary" />Assignments
+                <Paperclip className="w-5 h-5 text-primary" /> Assignments
               </h3>
+
               {assignments.map((a: any) => {
                 const existingSub = mySubmissions.find((s: any) => s.assignment_id === a.id);
                 const subStatus = existingSub?.status;
                 const canResubmit = subStatus === "Rejected";
                 const assignFiles = selectedFiles[a.id] || [];
                 const assignPreviews = previewUrls[a.id] || [];
+                const isJustSubmitted = justSubmitted === a.id;
 
                 return (
                   <div key={a.id} className="glass-card p-4 sm:p-5 space-y-4">
@@ -488,11 +470,29 @@ const LessonViewerPage = () => {
                     {existingSub?.feedback && (
                       <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
                         <p className="text-xs font-medium text-accent mb-1">Instructor Feedback</p>
-                        <p className="text-sm">{existingSub.feedback}</p>
+                        <p className="text-sm whitespace-pre-wrap">{existingSub.feedback}</p>
                       </div>
                     )}
 
-                    {(!existingSub || canResubmit) && (
+                    {/* ✅ Submission success card — shown immediately after submitting */}
+                    {isJustSubmitted && (
+                      <div className="p-4 rounded-xl bg-success/10 border border-success/30 space-y-2">
+                        <p className="text-sm font-semibold text-success flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4" /> Assignment submitted successfully! 🎉
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Your submission has been received. You'll get a notification in your Messages — check there for feedback and approval status.
+                        </p>
+                        <Link
+                          to="/dashboard/messages"
+                          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                        >
+                          <MessageCircle className="w-3 h-3" /> Go to Messages →
+                        </Link>
+                      </div>
+                    )}
+
+                    {(!existingSub || canResubmit) && !isJustSubmitted && (
                       <div className="space-y-4 pt-2 border-t border-border">
                         <Textarea
                           placeholder="Write your submission here..."
@@ -515,19 +515,13 @@ const LessonViewerPage = () => {
                             onChange={(e) => handleFileChange(a.id, e)}
                           />
 
-                          {/* ✅ Image previews — shown before uploading */}
                           {assignPreviews.length > 0 && (
                             <div className="space-y-2">
-                              <p className="text-xs font-medium text-muted-foreground">Preview — check your images before submitting:</p>
+                              <p className="text-xs font-medium text-muted-foreground">Preview — check before submitting:</p>
                               <div className="flex flex-wrap gap-2">
                                 {assignPreviews.map((url, i) => (
                                   <div key={i} className="relative group">
-                                    <img
-                                      src={url}
-                                      alt={`Preview ${i + 1}`}
-                                      className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border-2 border-primary/40 shadow-sm"
-                                    />
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors" />
+                                    <img src={url} alt={`Preview ${i + 1}`} className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border-2 border-primary/40 shadow-sm" />
                                     <span className="absolute bottom-1 right-1 bg-success rounded-full p-0.5 shadow">
                                       <CheckCircle className="w-3 h-3 text-white" />
                                     </span>
@@ -536,12 +530,11 @@ const LessonViewerPage = () => {
                               </div>
                               <p className="text-xs text-success flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" />
-                                {assignPreviews.length} image{assignPreviews.length > 1 ? "s" : ""} selected — looks good? Tap Submit when ready.
+                                {assignPreviews.length} image{assignPreviews.length > 1 ? "s" : ""} ready — tap Submit when happy.
                               </p>
                             </div>
                           )}
 
-                          {/* Upload tap zone */}
                           <button
                             type="button"
                             onClick={() => fileInputRefs.current[a.id]?.click()}
@@ -558,7 +551,6 @@ const LessonViewerPage = () => {
                             <span className="text-xs text-muted-foreground/70">Images, PDF, Word, ZIP</span>
                           </button>
 
-                          {/* Selected files list */}
                           {assignFiles.length > 0 && (
                             <div className="space-y-2 mt-2">
                               <p className="text-xs font-medium text-muted-foreground">{assignFiles.length} file{assignFiles.length > 1 ? "s" : ""} selected:</p>
@@ -567,12 +559,8 @@ const LessonViewerPage = () => {
                                   <FileText className="w-4 h-4 text-primary shrink-0" />
                                   <span className="text-xs flex-1 truncate">{file.name}</span>
                                   <span className="text-xs text-muted-foreground shrink-0">{(file.size / (1024 * 1024)).toFixed(1)}MB</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeFile(a.id, idx)}
-                                    disabled={submitting}
-                                    className="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                                  >
+                                  <button type="button" onClick={() => removeFile(a.id, idx)} disabled={submitting}
+                                    className="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors shrink-0">
                                     <X className="w-3 h-3" />
                                   </button>
                                 </div>
@@ -581,12 +569,10 @@ const LessonViewerPage = () => {
                           )}
                         </div>
 
-                        {/* Upload progress */}
                         {submitting && uploadProgress > 0 && (
                           <div className="space-y-1">
                             <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Uploading...</span>
-                              <span>{uploadProgress}%</span>
+                              <span>Uploading...</span><span>{uploadProgress}%</span>
                             </div>
                             <Progress value={uploadProgress} className="h-1.5 bg-secondary" />
                           </div>
@@ -599,19 +585,22 @@ const LessonViewerPage = () => {
                           disabled={submitting}
                           className="w-full sm:w-auto touch-manipulation"
                         >
-                          {submitting ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{uploadProgress > 0 ? `Uploading ${uploadProgress}%...` : "Submitting..."}</>
-                          ) : (
-                            <><Send className="w-4 h-4 mr-2" />{canResubmit ? "Resubmit Assignment" : "Submit Assignment"}</>
-                          )}
+                          {submitting
+                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{uploadProgress > 0 ? `Uploading ${uploadProgress}%...` : "Submitting..."}</>
+                            : <><Send className="w-4 h-4 mr-2" />{canResubmit ? "Resubmit Assignment" : "Submit Assignment"}</>}
                         </Button>
                       </div>
                     )}
 
-                    {existingSub && !canResubmit && subStatus !== "Approved" && (
-                      <p className="text-sm text-accent flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0" />Your submission is under review
-                      </p>
+                    {existingSub && !canResubmit && subStatus !== "Approved" && !isJustSubmitted && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-accent flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0" /> Under review — check Messages for updates
+                        </p>
+                        <Link to="/dashboard/messages" className="text-xs text-primary hover:underline flex items-center gap-1">
+                          <MessageCircle className="w-3 h-3" /> Messages
+                        </Link>
+                      </div>
                     )}
                   </div>
                 );
@@ -621,7 +610,7 @@ const LessonViewerPage = () => {
         </div>
       </div>
 
-      {/* Lesson sidebar */}
+      {/* Sidebar */}
       <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-card/30 overflow-auto lg:max-h-screen lg:sticky lg:top-0">
         <div className="p-4 border-b border-border">
           <h3 className="font-semibold text-sm mb-2">{course?.title}</h3>
@@ -651,16 +640,16 @@ const LessonViewerPage = () => {
                       }`}
                       onClick={() => accessible && navigate(`/lesson/${l.id}`)}
                     >
-                      {completed ? (
-                        <CheckCircle className="w-4 h-4 text-success shrink-0" />
-                      ) : accessible ? (
-                        l.content_type === "video"
-                          ? <PlayCircle className={`w-4 h-4 shrink-0 ${l.id === lessonId ? "text-primary" : "text-muted-foreground"}`} />
-                          : <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-                      )}
-                      <span className={`flex-1 truncate ${l.id === lessonId ? "text-foreground font-medium" : "text-muted-foreground"}`}>{l.title}</span>
+                      {completed
+                        ? <CheckCircle className="w-4 h-4 text-success shrink-0" />
+                        : accessible
+                          ? l.content_type === "video"
+                            ? <PlayCircle className={`w-4 h-4 shrink-0 ${l.id === lessonId ? "text-primary" : "text-muted-foreground"}`} />
+                            : <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                          : <Lock className="w-4 h-4 text-muted-foreground shrink-0" />}
+                      <span className={`flex-1 truncate ${l.id === lessonId ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                        {l.title}
+                      </span>
                     </div>
                   );
                 })}
