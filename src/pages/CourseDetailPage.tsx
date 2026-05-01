@@ -131,14 +131,21 @@ const CourseDetailPage = () => {
     setPayLoading(false);
   };
 
-  // Payment verification on callback
+  // Payment verification on callback (guarded against double-fire in StrictMode)
+  const [verifying, setVerifying] = useState(false);
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const verifyRef = searchParams.get("reference");
     const shouldVerify = searchParams.get("verify");
 
-    if (shouldVerify === "true" && verifyRef && session) {
+    if (shouldVerify === "true" && verifyRef && session && !verifying) {
+      const key = `paystack-verified-${verifyRef}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+      setVerifying(true);
+
       (async () => {
+        const loadingToast = toast.loading("Verifying your payment...");
         try {
           const resp = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/paystack?action=verify`,
@@ -153,23 +160,26 @@ const CourseDetailPage = () => {
             }
           );
           const result = await resp.json();
+          toast.dismiss(loadingToast);
           if (result.success) {
-            toast.success("Payment successful! You now have full access to this course.");
+            toast.success(result.message || "Payment successful! Course unlocked.");
             await refreshProfile();
             queryClient.invalidateQueries({ queryKey: ["enrollment"] });
             queryClient.invalidateQueries({ queryKey: ["course-purchases"] });
-            // Clean URL
-            window.history.replaceState({}, "", `/courses/${courseId}`);
           } else {
-            toast.error("Payment verification failed. Please try again.");
+            toast.error(result.message || result.error || "Payment verification failed. Please try again.");
           }
+          window.history.replaceState({}, "", `/courses/${courseId}`);
         } catch (error) {
+          toast.dismiss(loadingToast);
           console.error("Verification error:", error);
-          toast.error("Verification error. Please contact support.");
+          toast.error("Could not reach our servers to verify payment. Please refresh or contact support.");
+        } finally {
+          setVerifying(false);
         }
       })();
     }
-  }, [session, courseId, queryClient]);
+  }, [session, courseId, queryClient, refreshProfile]);
 
   // Build flat lesson list with global index for sequential access
   const allLessonsOrdered: any[] = [];
