@@ -95,6 +95,18 @@ const DashboardTopNav = () => {
 
           <div className="hidden md:flex items-center gap-3">
             <Link
+              to="/notifications"
+              className="relative flex items-center px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {(unreadMessages + unreadGroups) > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                  {(unreadMessages + unreadGroups) > 9 ? "9+" : (unreadMessages + unreadGroups)}
+                </span>
+              )}
+            </Link>
+            <Link
               to="/dashboard/settings"
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
             >
