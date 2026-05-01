@@ -188,7 +188,7 @@ const LeaderboardPage = () => {
                           </div>
                         )}
                         {daysSince === 0 && (
-                          <Flame className="w-4 h-4 text-orange-400 shrink-0" title="Active today" />
+                          <span title="Active today"><Flame className="w-4 h-4 text-orange-400 shrink-0" /></span>
                         )}
                       </div>
                     </div>
