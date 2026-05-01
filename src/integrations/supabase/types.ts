@@ -597,6 +597,36 @@ export type Database = {
           },
         ]
       }
+      site_feedback: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          name: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          name?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
       submissions: {
         Row: {
           assignment_id: string
@@ -640,6 +670,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      testimonials: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_published: boolean | null
+          name: string
+          rating: number | null
+          role: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          name: string
+          rating?: number | null
+          role?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          name?: string
+          rating?: number | null
+          role?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
