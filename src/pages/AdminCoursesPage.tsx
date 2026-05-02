@@ -207,7 +207,9 @@ const AdminCoursesPage = () => {
         file_url: finalUrl,
         module_id: lessonForm.module_id,
         sort_order: moduleLessons.length,
-      });
+        week_number: lessonForm.week_number ? parseInt(lessonForm.week_number) : null,
+        day_number: lessonForm.day_number ? parseInt(lessonForm.day_number) : null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -226,6 +228,8 @@ const AdminCoursesPage = () => {
         title: lessonForm.title,
         content_type: lessonForm.content_type,
         content_text: lessonForm.content_text || null,
+        week_number: lessonForm.week_number ? parseInt(lessonForm.week_number) : null,
+        day_number: lessonForm.day_number ? parseInt(lessonForm.day_number) : null,
       };
       if (fileUrl) updateData.file_url = fileUrl;
       else if (lessonForm.content_url) updateData.file_url = lessonForm.content_url;
