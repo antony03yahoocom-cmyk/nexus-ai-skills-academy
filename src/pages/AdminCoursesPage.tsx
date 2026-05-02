@@ -52,16 +52,22 @@ const AdminCoursesPage = () => {
   const [editingCourse, setEditingCourse] = useState<any>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
-  const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" });
+  const [courseForm, setCourseForm] = useState({
+    title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual",
+    long_description: "", what_you_achieve: "", who_is_for: "",
+    instructor_name: "", instructor_bio: "", instructor_photo_url: "",
+    trailer_video_url: "", trailer_video_type: "url",
+  });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [showModuleForm, setShowModuleForm] = useState<string | null>(null);
-  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "", week_number: "", day_number: "" });
   const [showLessonForm, setShowLessonForm] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<any>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFileName, setSelectedFileName] = useState("");
   const [editFileName, setEditFileName] = useState("");
+  const [uploadingTrailer, setUploadingTrailer] = useState(false);
   const [showAssignmentForm, setShowAssignmentForm] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState({ title: "", description: "", objective: "", task: "", deliverable: "", lesson_id: "" });
 
