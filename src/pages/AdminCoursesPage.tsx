@@ -110,10 +110,31 @@ const AdminCoursesPage = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
   };
 
+  // Build course DB payload from form (convert textarea → JSON arrays)
+  const buildCoursePayload = () => {
+    const toLines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
+    return {
+      title: courseForm.title,
+      description: courseForm.description || null,
+      category: courseForm.category,
+      is_published: courseForm.is_published,
+      price: courseForm.price || 0,
+      approval_mode: courseForm.approval_mode,
+      long_description: courseForm.long_description || null,
+      what_you_achieve: toLines(courseForm.what_you_achieve),
+      who_is_for: toLines(courseForm.who_is_for),
+      instructor_name: courseForm.instructor_name || null,
+      instructor_bio: courseForm.instructor_bio || null,
+      instructor_photo_url: courseForm.instructor_photo_url || null,
+      trailer_video_url: courseForm.trailer_video_url || null,
+      trailer_video_type: courseForm.trailer_video_type,
+    } as any;
+  };
+
   // ── Course mutations ──────────────────────────────────────────────
   const createCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").insert({ ...courseForm, price: courseForm.price || 0 } as any);
+      const { error } = await supabase.from("courses").insert(buildCoursePayload());
       if (error) throw error;
     },
     onSuccess: () => { invalidateAll(); toast.success("Course created!"); setShowCourseForm(false); setCourseForm(EMPTY_COURSE_FORM); },
@@ -122,7 +143,7 @@ const AdminCoursesPage = () => {
 
   const updateCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").update({ ...courseForm, price: courseForm.price || 0 } as any).eq("id", editingCourse.id);
+      const { error } = await supabase.from("courses").update(buildCoursePayload()).eq("id", editingCourse.id);
       if (error) throw error;
     },
     onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm(EMPTY_COURSE_FORM); },
