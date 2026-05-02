@@ -637,6 +637,7 @@ const AdminCoursesPage = () => {
                 </div>
               </div>
 
+              <div className="flex gap-2 mt-4">
                 <Button variant="hero" onClick={() => editingCourse ? updateCourse.mutate() : createCourse.mutate()}>
                   {editingCourse ? "Update Course" : "Create Course"}
                 </Button>
