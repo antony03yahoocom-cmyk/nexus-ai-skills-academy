@@ -128,8 +128,8 @@ const CourseAboutPage = () => {
   const isFree = course.price === 0;
   const courseAccess = courseId ? hasCourseAccess(courseId) : false;
   const priceFormatted = isFree ? "Free" : `KES ${course.price.toLocaleString()}`;
-  const achievements: string[] = Array.isArray(course.what_you_achieve) ? course.what_you_achieve : [];
-  const audience: string[] = Array.isArray(course.who_is_for) ? course.who_is_for : [];
+  const achievements: string[] = Array.isArray(course.what_you_achieve) ? (course.what_you_achieve as any[]).map(String) : [];
+  const audience: string[] = Array.isArray(course.who_is_for) ? (course.who_is_for as any[]).map(String) : [];
   const trailerUrl: string | null = course.trailer_video_url || null;
 
   const renderTrailer = () => {
