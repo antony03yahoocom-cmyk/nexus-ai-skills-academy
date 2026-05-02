@@ -46,22 +46,36 @@ const ContentTypeButton = ({ type, selected, onClick }: { type: typeof CONTENT_T
 const isYouTubeUrl = (url: string) =>
   url.includes("youtube.com") || url.includes("youtu.be");
 
+const EMPTY_COURSE_FORM = {
+  title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual",
+  long_description: "", what_you_achieve: "", who_is_for: "",
+  instructor_name: "", instructor_bio: "", instructor_photo_url: "",
+  trailer_video_url: "", trailer_video_type: "url",
+};
+const EMPTY_LESSON_FORM = { title: "", content_type: "video", content_text: "", content_url: "", module_id: "", week_number: "", day_number: "" };
+
 const AdminCoursesPage = () => {
   const queryClient = useQueryClient();
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
-  const [courseForm, setCourseForm] = useState({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" });
+  const [courseForm, setCourseForm] = useState({
+    title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual",
+    long_description: "", what_you_achieve: "", who_is_for: "",
+    instructor_name: "", instructor_bio: "", instructor_photo_url: "",
+    trailer_video_url: "", trailer_video_type: "url",
+  });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [showModuleForm, setShowModuleForm] = useState<string | null>(null);
-  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+  const [lessonForm, setLessonForm] = useState({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "", week_number: "", day_number: "" });
   const [showLessonForm, setShowLessonForm] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<any>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFileName, setSelectedFileName] = useState("");
   const [editFileName, setEditFileName] = useState("");
+  const [uploadingTrailer, setUploadingTrailer] = useState(false);
   const [showAssignmentForm, setShowAssignmentForm] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState({ title: "", description: "", objective: "", task: "", deliverable: "", lesson_id: "" });
 
@@ -96,22 +110,43 @@ const AdminCoursesPage = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
   };
 
+  // Build course DB payload from form (convert textarea → JSON arrays)
+  const buildCoursePayload = () => {
+    const toLines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
+    return {
+      title: courseForm.title,
+      description: courseForm.description || null,
+      category: courseForm.category,
+      is_published: courseForm.is_published,
+      price: courseForm.price || 0,
+      approval_mode: courseForm.approval_mode,
+      long_description: courseForm.long_description || null,
+      what_you_achieve: toLines(courseForm.what_you_achieve),
+      who_is_for: toLines(courseForm.who_is_for),
+      instructor_name: courseForm.instructor_name || null,
+      instructor_bio: courseForm.instructor_bio || null,
+      instructor_photo_url: courseForm.instructor_photo_url || null,
+      trailer_video_url: courseForm.trailer_video_url || null,
+      trailer_video_type: courseForm.trailer_video_type,
+    } as any;
+  };
+
   // ── Course mutations ──────────────────────────────────────────────
   const createCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").insert({ ...courseForm, price: courseForm.price || 0 } as any);
+      const { error } = await supabase.from("courses").insert(buildCoursePayload());
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Course created!"); setShowCourseForm(false); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); },
+    onSuccess: () => { invalidateAll(); toast.success("Course created!"); setShowCourseForm(false); setCourseForm(EMPTY_COURSE_FORM); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const updateCourse = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("courses").update({ ...courseForm, price: courseForm.price || 0 } as any).eq("id", editingCourse.id);
+      const { error } = await supabase.from("courses").update(buildCoursePayload()).eq("id", editingCourse.id);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); },
+    onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm(EMPTY_COURSE_FORM); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -172,14 +207,16 @@ const AdminCoursesPage = () => {
         file_url: finalUrl,
         module_id: lessonForm.module_id,
         sort_order: moduleLessons.length,
-      });
+        week_number: lessonForm.week_number ? parseInt(lessonForm.week_number) : null,
+        day_number: lessonForm.day_number ? parseInt(lessonForm.day_number) : null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       invalidateAll();
       toast.success("Lesson created!");
       setShowLessonForm(null);
-      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+      setLessonForm(EMPTY_LESSON_FORM);
       setSelectedFileName("");
     },
     onError: (e: any) => toast.error(e.message),
@@ -191,6 +228,8 @@ const AdminCoursesPage = () => {
         title: lessonForm.title,
         content_type: lessonForm.content_type,
         content_text: lessonForm.content_text || null,
+        week_number: lessonForm.week_number ? parseInt(lessonForm.week_number) : null,
+        day_number: lessonForm.day_number ? parseInt(lessonForm.day_number) : null,
       };
       if (fileUrl) updateData.file_url = fileUrl;
       else if (lessonForm.content_url) updateData.file_url = lessonForm.content_url;
@@ -201,7 +240,7 @@ const AdminCoursesPage = () => {
       invalidateAll();
       toast.success("Lesson updated!");
       setEditingLesson(null);
-      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+      setLessonForm(EMPTY_LESSON_FORM);
       setEditFileName("");
     },
     onError: (e: any) => toast.error(e.message),
@@ -266,12 +305,31 @@ const AdminCoursesPage = () => {
 
   const startEditCourse = (course: any) => {
     setEditingCourse(course);
-    setCourseForm({ title: course.title, description: course.description || "", category: course.category, is_published: course.is_published, price: course.price || 0, approval_mode: (course as any).approval_mode || "manual" });
+    const wya = Array.isArray(course.what_you_achieve) ? course.what_you_achieve.join("\n") : "";
+    const wif = Array.isArray(course.who_is_for) ? course.who_is_for.join("\n") : "";
+    setCourseForm({
+      title: course.title, description: course.description || "", category: course.category,
+      is_published: course.is_published, price: course.price || 0,
+      approval_mode: course.approval_mode || "manual",
+      long_description: course.long_description || "",
+      what_you_achieve: wya, who_is_for: wif,
+      instructor_name: course.instructor_name || "",
+      instructor_bio: course.instructor_bio || "",
+      instructor_photo_url: course.instructor_photo_url || "",
+      trailer_video_url: course.trailer_video_url || "",
+      trailer_video_type: course.trailer_video_type || "url",
+    });
   };
 
   const startEditLesson = (lesson: any) => {
     setEditingLesson(lesson);
-    setLessonForm({ title: lesson.title, content_type: lesson.content_type, content_text: lesson.content_text || "", content_url: lesson.file_url || "", module_id: lesson.module_id });
+    setLessonForm({
+      title: lesson.title, content_type: lesson.content_type,
+      content_text: lesson.content_text || "", content_url: lesson.file_url || "",
+      module_id: lesson.module_id,
+      week_number: lesson.week_number ? String(lesson.week_number) : "",
+      day_number: lesson.day_number ? String(lesson.day_number) : "",
+    });
     setEditFileName("");
   };
 
@@ -300,7 +358,29 @@ const AdminCoursesPage = () => {
           />
         </div>
 
-        {/* Content type selector */}
+        {/* Week & Day */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Week #</Label>
+            <Input
+              type="number" min="1" placeholder="1"
+              value={lessonForm.week_number}
+              onChange={(e) => setLessonForm({ ...lessonForm, week_number: e.target.value })}
+              className="bg-secondary border-border"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Day #</Label>
+            <Input
+              type="number" min="1" max="7" placeholder="1"
+              value={lessonForm.day_number}
+              onChange={(e) => setLessonForm({ ...lessonForm, day_number: e.target.value })}
+              className="bg-secondary border-border"
+            />
+          </div>
+        </div>
+
+
         <div className="space-y-1.5">
           <Label className="text-xs">Content Type *</Label>
           <div className="flex flex-wrap gap-2">
@@ -423,7 +503,7 @@ const AdminCoursesPage = () => {
               <h1 className="text-3xl font-bold">Manage Courses</h1>
               <p className="text-muted-foreground">Create and manage course content, modules, lessons &amp; assignments.</p>
             </div>
-            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); }}>
+            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm(EMPTY_COURSE_FORM); }}>
               <Plus className="w-4 h-4 mr-1" /> New Course
             </Button>
           </div>
@@ -468,6 +548,117 @@ const AdminCoursesPage = () => {
                   <Label htmlFor="published">Published</Label>
                 </div>
               </div>
+
+              {/* ── Landing page content ── */}
+              <div className="mt-6 pt-6 border-t border-border space-y-4">
+                <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-primary" /> Landing Page Content
+                  <span className="text-xs font-normal text-muted-foreground">(shown on /courses/:id/about)</span>
+                </h4>
+
+                <div className="space-y-2">
+                  <Label>Long Description</Label>
+                  <Textarea
+                    placeholder="Tell students more about this course — context, depth, projects, value…"
+                    rows={5}
+                    value={courseForm.long_description}
+                    onChange={(e) => setCourseForm({ ...courseForm, long_description: e.target.value })}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>What You'll Achieve <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+                    <Textarea
+                      placeholder={"Build production-ready AI apps\nMaster prompt engineering\nDeploy your first chatbot"}
+                      rows={5}
+                      value={courseForm.what_you_achieve}
+                      onChange={(e) => setCourseForm({ ...courseForm, what_you_achieve: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Who This Is For <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+                    <Textarea
+                      placeholder={"Developers exploring AI\nProduct managers\nStudents in tech"}
+                      rows={5}
+                      value={courseForm.who_is_for}
+                      onChange={(e) => setCourseForm({ ...courseForm, who_is_for: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+
+                {/* Trailer */}
+                <div className="space-y-2">
+                  <Label>Trailer Video</Label>
+                  <Input
+                    placeholder="Paste YouTube / Vimeo / direct video URL"
+                    value={courseForm.trailer_video_url}
+                    onChange={(e) => setCourseForm({ ...courseForm, trailer_video_url: e.target.value, trailer_video_type: "url" })}
+                    className="bg-secondary border-border"
+                  />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    <span>or upload an MP4 file:</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      id="trailer-upload"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setUploadingTrailer(true);
+                        const url = await handleFileUpload(f, "video");
+                        setUploadingTrailer(false);
+                        if (url) {
+                          setCourseForm({ ...courseForm, trailer_video_url: url, trailer_video_type: "upload" });
+                          toast.success("Trailer uploaded!");
+                        }
+                      }}
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={() => document.getElementById("trailer-upload")?.click()} disabled={uploadingTrailer}>
+                      <Upload className="w-3 h-3 mr-1" />
+                      {uploadingTrailer ? "Uploading…" : "Upload trailer"}
+                    </Button>
+                    {courseForm.trailer_video_url && <span className="text-success">✓ Trailer set</span>}
+                  </div>
+                </div>
+
+                {/* Instructor */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Instructor Name</Label>
+                    <Input
+                      placeholder="e.g. Jane Mwangi"
+                      value={courseForm.instructor_name}
+                      onChange={(e) => setCourseForm({ ...courseForm, instructor_name: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Instructor Photo URL</Label>
+                    <Input
+                      placeholder="https://…"
+                      value={courseForm.instructor_photo_url}
+                      onChange={(e) => setCourseForm({ ...courseForm, instructor_photo_url: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Instructor Bio</Label>
+                    <Textarea
+                      placeholder="Short instructor introduction, credentials, experience…"
+                      rows={3}
+                      value={courseForm.instructor_bio}
+                      onChange={(e) => setCourseForm({ ...courseForm, instructor_bio: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-2 mt-4">
                 <Button variant="hero" onClick={() => editingCourse ? updateCourse.mutate() : createCourse.mutate()}>
                   {editingCourse ? "Update Course" : "Create Course"}
@@ -555,6 +746,11 @@ const AdminCoursesPage = () => {
                                             <TypeIcon className={`w-3.5 h-3.5 ${typeInfo.color}`} />
                                           </div>
                                           <span className="text-sm truncate">{lesson.title}</span>
+                                          {(lesson.week_number || lesson.day_number) && (
+                                            <Badge variant="outline" className="text-[10px] shrink-0">
+                                              W{lesson.week_number || "?"} D{lesson.day_number || "?"}
+                                            </Badge>
+                                          )}
                                           {lesson.file_url && (
                                             <a href={lesson.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline shrink-0 text-xs">View</a>
                                           )}
@@ -628,7 +824,7 @@ const AdminCoursesPage = () => {
                                     size="sm" variant="ghost" className="text-xs"
                                     onClick={() => {
                                       setShowLessonForm(mod.id);
-                                      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: mod.id });
+                                      setLessonForm({ ...EMPTY_LESSON_FORM, module_id: mod.id });
                                       setSelectedFileName("");
                                     }}
                                   >

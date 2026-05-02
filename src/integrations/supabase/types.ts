@@ -170,10 +170,18 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          instructor_bio: string | null
+          instructor_name: string | null
+          instructor_photo_url: string | null
           is_published: boolean
+          long_description: string | null
           price: number
           title: string
+          trailer_video_type: string | null
+          trailer_video_url: string | null
           updated_at: string
+          what_you_achieve: Json | null
+          who_is_for: Json | null
         }
         Insert: {
           approval_mode?: string
@@ -182,10 +190,18 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          instructor_bio?: string | null
+          instructor_name?: string | null
+          instructor_photo_url?: string | null
           is_published?: boolean
+          long_description?: string | null
           price?: number
           title: string
+          trailer_video_type?: string | null
+          trailer_video_url?: string | null
           updated_at?: string
+          what_you_achieve?: Json | null
+          who_is_for?: Json | null
         }
         Update: {
           approval_mode?: string
@@ -194,10 +210,18 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          instructor_bio?: string | null
+          instructor_name?: string | null
+          instructor_photo_url?: string | null
           is_published?: boolean
+          long_description?: string | null
           price?: number
           title?: string
+          trailer_video_type?: string | null
+          trailer_video_url?: string | null
           updated_at?: string
+          what_you_achieve?: Json | null
+          who_is_for?: Json | null
         }
         Relationships: []
       }
@@ -392,6 +416,7 @@ export type Database = {
           content_text: string | null
           content_type: string
           created_at: string
+          day_number: number | null
           file_url: string | null
           file_url_backup: string | null
           id: string
@@ -399,11 +424,13 @@ export type Database = {
           order_index: number | null
           sort_order: number
           title: string
+          week_number: number | null
         }
         Insert: {
           content_text?: string | null
           content_type: string
           created_at?: string
+          day_number?: number | null
           file_url?: string | null
           file_url_backup?: string | null
           id?: string
@@ -411,11 +438,13 @@ export type Database = {
           order_index?: number | null
           sort_order?: number
           title: string
+          week_number?: number | null
         }
         Update: {
           content_text?: string | null
           content_type?: string
           created_at?: string
+          day_number?: number | null
           file_url?: string | null
           file_url_backup?: string | null
           id?: string
@@ -423,6 +452,7 @@ export type Database = {
           order_index?: number | null
           sort_order?: number
           title?: string
+          week_number?: number | null
         }
         Relationships: [
           {

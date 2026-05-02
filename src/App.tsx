@@ -12,6 +12,7 @@ import LoginPage from "./pages/LoginPage.tsx";
 import SignupPage from "./pages/SignupPage.tsx";
 import CoursesPage from "./pages/CoursesPage.tsx";
 import CourseDetailPage from "./pages/CourseDetailPage.tsx";
+import CourseAboutPage from "./pages/CourseAboutPage.tsx";
 import LessonViewerPage from "./pages/LessonViewerPage.tsx";
 import StudentDashboard from "./pages/StudentDashboard.tsx";
 import StudentProjectsPage from "./pages/StudentProjectsPage.tsx";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/courses/:courseId" element={<CourseDetailPage />} />
+            <Route path="/courses/:courseId/about" element={<CourseAboutPage />} />
             <Route path="/subscribe" element={<SubscribePage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />
             <Route path="/blog" element={<BlogPage />} />
