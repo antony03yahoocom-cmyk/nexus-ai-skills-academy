@@ -116,7 +116,7 @@ const AdminCoursesPage = () => {
       const { error } = await supabase.from("courses").insert({ ...courseForm, price: courseForm.price || 0 } as any);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Course created!"); setShowCourseForm(false); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); },
+    onSuccess: () => { invalidateAll(); toast.success("Course created!"); setShowCourseForm(false); setCourseForm(EMPTY_COURSE_FORM); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -125,7 +125,7 @@ const AdminCoursesPage = () => {
       const { error } = await supabase.from("courses").update({ ...courseForm, price: courseForm.price || 0 } as any).eq("id", editingCourse.id);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); },
+    onSuccess: () => { invalidateAll(); toast.success("Course updated!"); setEditingCourse(null); setCourseForm(EMPTY_COURSE_FORM); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -193,7 +193,7 @@ const AdminCoursesPage = () => {
       invalidateAll();
       toast.success("Lesson created!");
       setShowLessonForm(null);
-      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+      setLessonForm(EMPTY_LESSON_FORM);
       setSelectedFileName("");
     },
     onError: (e: any) => toast.error(e.message),
@@ -215,7 +215,7 @@ const AdminCoursesPage = () => {
       invalidateAll();
       toast.success("Lesson updated!");
       setEditingLesson(null);
-      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: "" });
+      setLessonForm(EMPTY_LESSON_FORM);
       setEditFileName("");
     },
     onError: (e: any) => toast.error(e.message),
@@ -437,7 +437,7 @@ const AdminCoursesPage = () => {
               <h1 className="text-3xl font-bold">Manage Courses</h1>
               <p className="text-muted-foreground">Create and manage course content, modules, lessons &amp; assignments.</p>
             </div>
-            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm({ title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual" }); }}>
+            <Button variant="hero" onClick={() => { setShowCourseForm(true); setEditingCourse(null); setCourseForm(EMPTY_COURSE_FORM); }}>
               <Plus className="w-4 h-4 mr-1" /> New Course
             </Button>
           </div>
