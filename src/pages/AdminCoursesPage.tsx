@@ -526,7 +526,117 @@ const AdminCoursesPage = () => {
                   <Label htmlFor="published">Published</Label>
                 </div>
               </div>
-              <div className="flex gap-2 mt-4">
+
+              {/* ── Landing page content ── */}
+              <div className="mt-6 pt-6 border-t border-border space-y-4">
+                <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-primary" /> Landing Page Content
+                  <span className="text-xs font-normal text-muted-foreground">(shown on /courses/:id/about)</span>
+                </h4>
+
+                <div className="space-y-2">
+                  <Label>Long Description</Label>
+                  <Textarea
+                    placeholder="Tell students more about this course — context, depth, projects, value…"
+                    rows={5}
+                    value={courseForm.long_description}
+                    onChange={(e) => setCourseForm({ ...courseForm, long_description: e.target.value })}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>What You'll Achieve <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+                    <Textarea
+                      placeholder={"Build production-ready AI apps\nMaster prompt engineering\nDeploy your first chatbot"}
+                      rows={5}
+                      value={courseForm.what_you_achieve}
+                      onChange={(e) => setCourseForm({ ...courseForm, what_you_achieve: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Who This Is For <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+                    <Textarea
+                      placeholder={"Developers exploring AI\nProduct managers\nStudents in tech"}
+                      rows={5}
+                      value={courseForm.who_is_for}
+                      onChange={(e) => setCourseForm({ ...courseForm, who_is_for: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+
+                {/* Trailer */}
+                <div className="space-y-2">
+                  <Label>Trailer Video</Label>
+                  <Input
+                    placeholder="Paste YouTube / Vimeo / direct video URL"
+                    value={courseForm.trailer_video_url}
+                    onChange={(e) => setCourseForm({ ...courseForm, trailer_video_url: e.target.value, trailer_video_type: "url" })}
+                    className="bg-secondary border-border"
+                  />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    <span>or upload an MP4 file:</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      id="trailer-upload"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setUploadingTrailer(true);
+                        const url = await handleFileUpload(f, "video");
+                        setUploadingTrailer(false);
+                        if (url) {
+                          setCourseForm({ ...courseForm, trailer_video_url: url, trailer_video_type: "upload" });
+                          toast.success("Trailer uploaded!");
+                        }
+                      }}
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={() => document.getElementById("trailer-upload")?.click()} disabled={uploadingTrailer}>
+                      <Upload className="w-3 h-3 mr-1" />
+                      {uploadingTrailer ? "Uploading…" : "Upload trailer"}
+                    </Button>
+                    {courseForm.trailer_video_url && <span className="text-success">✓ Trailer set</span>}
+                  </div>
+                </div>
+
+                {/* Instructor */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Instructor Name</Label>
+                    <Input
+                      placeholder="e.g. Jane Mwangi"
+                      value={courseForm.instructor_name}
+                      onChange={(e) => setCourseForm({ ...courseForm, instructor_name: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Instructor Photo URL</Label>
+                    <Input
+                      placeholder="https://…"
+                      value={courseForm.instructor_photo_url}
+                      onChange={(e) => setCourseForm({ ...courseForm, instructor_photo_url: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Instructor Bio</Label>
+                    <Textarea
+                      placeholder="Short instructor introduction, credentials, experience…"
+                      rows={3}
+                      value={courseForm.instructor_bio}
+                      onChange={(e) => setCourseForm({ ...courseForm, instructor_bio: e.target.value })}
+                      className="bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+              </div>
+
                 <Button variant="hero" onClick={() => editingCourse ? updateCourse.mutate() : createCourse.mutate()}>
                   {editingCourse ? "Update Course" : "Create Course"}
                 </Button>
