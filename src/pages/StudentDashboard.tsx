@@ -116,6 +116,26 @@ const StudentDashboard = () => {
     enabled: !!user,
   });
 
+  // Lessons across all enrolled courses (for week/day + per-course progress)
+  const { data: allEnrolledLessons = [] } = useQuery({
+    queryKey: ["enrolled-lessons", user?.id, enrollments.map((e: any) => e.course_id).join(",")],
+    queryFn: async () => {
+      const courseIds = enrollments.map((e: any) => e.course_id);
+      if (!courseIds.length) return [];
+      const { data: mods } = await supabase.from("modules").select("id, course_id, sort_order").in("course_id", courseIds);
+      const moduleIds = (mods ?? []).map((m: any) => m.id);
+      if (!moduleIds.length) return [];
+      const { data: lessons } = await supabase
+        .from("lessons")
+        .select("id, module_id, sort_order, week_number, day_number, title")
+        .in("module_id", moduleIds)
+        .order("sort_order");
+      const modMap = Object.fromEntries((mods ?? []).map((m: any) => [m.id, m]));
+      return (lessons ?? []).map((l: any) => ({ ...l, course_id: modMap[l.module_id]?.course_id, module_sort: modMap[l.module_id]?.sort_order ?? 0 }));
+    },
+    enabled: !!user && enrollments.length > 0,
+  });
+
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements"],
     queryFn: async () => {
