@@ -280,12 +280,31 @@ const AdminCoursesPage = () => {
 
   const startEditCourse = (course: any) => {
     setEditingCourse(course);
-    setCourseForm({ title: course.title, description: course.description || "", category: course.category, is_published: course.is_published, price: course.price || 0, approval_mode: (course as any).approval_mode || "manual" });
+    const wya = Array.isArray(course.what_you_achieve) ? course.what_you_achieve.join("\n") : "";
+    const wif = Array.isArray(course.who_is_for) ? course.who_is_for.join("\n") : "";
+    setCourseForm({
+      title: course.title, description: course.description || "", category: course.category,
+      is_published: course.is_published, price: course.price || 0,
+      approval_mode: course.approval_mode || "manual",
+      long_description: course.long_description || "",
+      what_you_achieve: wya, who_is_for: wif,
+      instructor_name: course.instructor_name || "",
+      instructor_bio: course.instructor_bio || "",
+      instructor_photo_url: course.instructor_photo_url || "",
+      trailer_video_url: course.trailer_video_url || "",
+      trailer_video_type: course.trailer_video_type || "url",
+    });
   };
 
   const startEditLesson = (lesson: any) => {
     setEditingLesson(lesson);
-    setLessonForm({ title: lesson.title, content_type: lesson.content_type, content_text: lesson.content_text || "", content_url: lesson.file_url || "", module_id: lesson.module_id });
+    setLessonForm({
+      title: lesson.title, content_type: lesson.content_type,
+      content_text: lesson.content_text || "", content_url: lesson.file_url || "",
+      module_id: lesson.module_id,
+      week_number: lesson.week_number ? String(lesson.week_number) : "",
+      day_number: lesson.day_number ? String(lesson.day_number) : "",
+    });
     setEditFileName("");
   };
 
@@ -642,7 +661,7 @@ const AdminCoursesPage = () => {
                                     size="sm" variant="ghost" className="text-xs"
                                     onClick={() => {
                                       setShowLessonForm(mod.id);
-                                      setLessonForm({ title: "", content_type: "video", content_text: "", content_url: "", module_id: mod.id });
+                                      setLessonForm({ ...EMPTY_LESSON_FORM, module_id: mod.id });
                                       setSelectedFileName("");
                                     }}
                                   >
