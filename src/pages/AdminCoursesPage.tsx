@@ -746,6 +746,11 @@ const AdminCoursesPage = () => {
                                             <TypeIcon className={`w-3.5 h-3.5 ${typeInfo.color}`} />
                                           </div>
                                           <span className="text-sm truncate">{lesson.title}</span>
+                                          {(lesson.week_number || lesson.day_number) && (
+                                            <Badge variant="outline" className="text-[10px] shrink-0">
+                                              W{lesson.week_number || "?"} D{lesson.day_number || "?"}
+                                            </Badge>
+                                          )}
                                           {lesson.file_url && (
                                             <a href={lesson.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline shrink-0 text-xs">View</a>
                                           )}
