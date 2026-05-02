@@ -384,13 +384,26 @@ const StudentDashboard = () => {
                   <Button variant="hero" asChild><Link to="/courses">Browse Courses</Link></Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {enrollments.map((enrollment: any) => {
                     const cId = enrollment.course_id;
                     const hasAccess = hasCourseAccess(cId);
                     const coursePurchased = purchases.some((p) => p.course_id === cId);
-                    const prog = enrollment.progress || 0;
+                    const completedIds = new Set(completions.map((c: any) => c.lesson_id));
+                    const courseLessons = (allEnrolledLessons as any[])
+                      .filter((l) => l.course_id === cId)
+                      .sort((a, b) => (a.module_sort - b.module_sort) || (a.sort_order - b.sort_order));
+                    const totalLessons = courseLessons.length;
+                    const doneLessons = courseLessons.filter((l) => completedIds.has(l.id)).length;
+                    const prog = totalLessons > 0
+                      ? Math.round((doneLessons / totalLessons) * 100)
+                      : (enrollment.progress || 0);
                     const isComplete = prog >= 100;
+                    // Next lesson = first not-completed; current week/day = its labels
+                    const nextLesson = courseLessons.find((l) => !completedIds.has(l.id)) || courseLessons[courseLessons.length - 1];
+                    const wkLabel = nextLesson?.week_number
+                      ? `Week ${nextLesson.week_number}${nextLesson.day_number ? ` · Day ${nextLesson.day_number}` : ""}`
+                      : null;
 
                     return (
                       <Link
@@ -398,7 +411,7 @@ const StudentDashboard = () => {
                         to={`/courses/${cId}`}
                         className="glass-card overflow-hidden group hover:border-primary/30 transition-all duration-300"
                       >
-                        <div className="h-24 bg-gradient-to-br from-primary/20 to-accent/10 flex items-center justify-center text-3xl relative">
+                        <div className="h-20 sm:h-24 bg-gradient-to-br from-primary/20 to-accent/10 flex items-center justify-center text-3xl relative">
                           {categoryEmojis[enrollment.courses?.category] || "📚"}
                           {!hasAccess && (
                             <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
@@ -410,8 +423,13 @@ const StudentDashboard = () => {
                               <Badge className="bg-success/90 text-white border-0 text-[10px]">✓ Complete</Badge>
                             </div>
                           )}
+                          {wkLabel && !isComplete && (
+                            <div className="absolute bottom-2 left-2">
+                              <Badge className="bg-primary/80 text-white border-0 text-[10px]">{wkLabel}</Badge>
+                            </div>
+                          )}
                         </div>
-                        <div className="p-4">
+                        <div className="p-3 sm:p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <h3 className="font-semibold text-sm group-hover:text-primary transition-colors flex-1 truncate">
                               {enrollment.courses?.title ?? "Course"}
@@ -419,8 +437,12 @@ const StudentDashboard = () => {
                             {coursePurchased && <Badge className="bg-success/10 text-success border-success/20 text-[10px]">Paid</Badge>}
                             {isPremium && <Crown className="w-3 h-3 text-primary shrink-0" />}
                           </div>
-                          <Progress value={prog} className="h-1.5 bg-secondary mb-1.5" />
-                          <p className="text-xs text-muted-foreground">{prog}% complete</p>
+                          {/* Per-course progress bar */}
+                          <Progress value={prog} className="h-2 bg-secondary mb-1.5" />
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{doneLessons}/{totalLessons || "—"} lessons</span>
+                            <span className="font-semibold gradient-text">{prog}%</span>
+                          </div>
                         </div>
                       </Link>
                     );
