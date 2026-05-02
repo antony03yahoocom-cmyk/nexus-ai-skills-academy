@@ -46,6 +46,14 @@ const ContentTypeButton = ({ type, selected, onClick }: { type: typeof CONTENT_T
 const isYouTubeUrl = (url: string) =>
   url.includes("youtube.com") || url.includes("youtu.be");
 
+const EMPTY_COURSE_FORM = {
+  title: "", description: "", category: "AI", is_published: false, price: 0, approval_mode: "manual",
+  long_description: "", what_you_achieve: "", who_is_for: "",
+  instructor_name: "", instructor_bio: "", instructor_photo_url: "",
+  trailer_video_url: "", trailer_video_type: "url",
+};
+const EMPTY_LESSON_FORM = { title: "", content_type: "video", content_text: "", content_url: "", module_id: "", week_number: "", day_number: "" };
+
 const AdminCoursesPage = () => {
   const queryClient = useQueryClient();
   const [showCourseForm, setShowCourseForm] = useState(false);
