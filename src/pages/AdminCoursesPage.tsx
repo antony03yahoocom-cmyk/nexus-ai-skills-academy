@@ -358,7 +358,29 @@ const AdminCoursesPage = () => {
           />
         </div>
 
-        {/* Content type selector */}
+        {/* Week & Day */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Week #</Label>
+            <Input
+              type="number" min="1" placeholder="1"
+              value={lessonForm.week_number}
+              onChange={(e) => setLessonForm({ ...lessonForm, week_number: e.target.value })}
+              className="bg-secondary border-border"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Day #</Label>
+            <Input
+              type="number" min="1" max="7" placeholder="1"
+              value={lessonForm.day_number}
+              onChange={(e) => setLessonForm({ ...lessonForm, day_number: e.target.value })}
+              className="bg-secondary border-border"
+            />
+          </div>
+        </div>
+
+
         <div className="space-y-1.5">
           <Label className="text-xs">Content Type *</Label>
           <div className="flex flex-wrap gap-2">
